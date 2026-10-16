@@ -1,0 +1,8 @@
+# Secrets and local environment (commit .env.example only)
+.env
+.env.*
+!.env.example
+
+# OS files
+.DS_Store
+Thumbs.db
