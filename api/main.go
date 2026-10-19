@@ -2,12 +2,13 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"log/slog"
 	"net"
-	"net/http"
 	"os"
-	"time"
+	"os/signal"
+	"syscall"
 
 	"github.com/dotatlas/printing-profiles/api/internal/config"
 	"github.com/dotatlas/printing-profiles/api/internal/httpapi"
@@ -26,9 +27,10 @@ func main() {
 		log.Error("stopped with an error", "err", err)
 		os.Exit(1)
 	}
+	log.Info("stopped")
 }
 
-// serve loads the settings, opens the port and runs the API. main calls it for "serve".
+// serve loads the settings, opens the port and runs the API until a stop signal comes. main calls it for "serve".
 func serve(log *slog.Logger) error {
 	cfg, err := config.Load(os.Getenv)
 	if err != nil {
@@ -38,9 +40,11 @@ func serve(log *slog.Logger) error {
 	if err != nil {
 		return err
 	}
+	// Ctrl+C and SIGTERM (from Docker or Lambda) cancel ctx, and Serve then stops.
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+
 	log.Info("listening", "port", cfg.Port, "env", cfg.Env, "site_origin", cfg.SiteOrigin)
 	srv := &httpapi.Server{Log: log, Cfg: cfg}
-	// ReadHeaderTimeout stops a slow client from keeping a connection open forever.
-	httpSrv := &http.Server{Handler: srv.Handler(), ReadHeaderTimeout: 10 * time.Second}
-	return httpSrv.Serve(ln)
+	return httpapi.Serve(ctx, ln, srv.Handler())
 }
