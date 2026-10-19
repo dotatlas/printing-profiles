@@ -15,16 +15,21 @@ docker-compose.yml   local PostgreSQL
 
 ## Commands
 
-Added here as the code lands. Planned:
+```bash
+go -C api run . serve                # run the API (dev defaults; see .env.example)
+go -C api vet ./...
+go -C api test -race ./...           # Go tests
+cd bruno && npx @usebruno/cli run --env local   # API checks against the running API
+docker build -t printing-profiles-api ./api       # container image (runs "serve" on port 8080)
+```
+
+Planned, added as they land:
 
 ```bash
 docker compose up -d                 # local Postgres
 go -C api run . migrate              # apply migrations
-go -C api run . serve                # run the API
-go -C api test -race ./...           # Go tests
 npm --prefix web run dev             # run the frontend
 npm --prefix web test                # frontend tests
-cd bruno && npx @usebruno/cli run --env local   # API checks against the running API
 ```
 
 ## Conventions
