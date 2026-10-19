@@ -59,4 +59,5 @@ cd bruno && npx @usebruno/cli run --env local   # API checks against the running
   - Validate uploads by their content, never their file name.
 - **Commits:**
   - Conventional Commits (`feat: ...`, `fix: ...`), lowercase, no emojis, no trailing period.
+  - Small steps: each step lands as about two commits, usually the code and then its tests. Every commit builds and passes the tests where it stands.
   - Code, its tests and its Bruno requests go in separate commits.

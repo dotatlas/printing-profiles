@@ -1,0 +1,2 @@
+# Keep LF line endings on every OS, so gofmt and other tools agree with the repository.
+* text=auto eol=lf
