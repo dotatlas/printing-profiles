@@ -11,15 +11,21 @@ import (
 
 // Config holds the API settings. main reads them one time, before the server starts.
 type Config struct {
-	Env        string // "dev" or "prod"
-	Port       int    // the TCP port that the API listens on
-	SiteOrigin string // the only origin that CORS allows, for example https://printingprofiles.com
+	Env         string // "dev" or "prod"
+	Port        int    // the TCP port that the API listens on
+	SiteOrigin  string // the only origin that CORS allows, for example https://printingprofiles.com
+	DatabaseURL string // the PostgreSQL connection URL
 }
 
 // Load reads the settings with getenv and checks them. main calls it with os.Getenv, and it returns all errors together.
 func Load(getenv func(string) string) (Config, error) {
 	// These defaults let the API run in dev with no settings.
-	cfg := Config{Env: "dev", Port: 8080, SiteOrigin: "http://localhost:3000"}
+	cfg := Config{
+		Env:         "dev",
+		Port:        8080,
+		SiteOrigin:  "http://localhost:3000",
+		DatabaseURL: "postgres://printing:printing@localhost:5432/printing?sslmode=disable", // the docker compose database
+	}
 	var errs []error
 
 	if v := getenv("ENV"); v != "" {
@@ -48,6 +54,18 @@ func Load(getenv func(string) string) (Config, error) {
 			errs = append(errs, fmt.Errorf("SITE_ORIGIN: %w", err))
 		} else {
 			cfg.SiteOrigin = o
+		}
+	}
+	dbURL := getenv("DATABASE_URL")
+	switch {
+	case dbURL == "" && cfg.Env == "prod":
+		errs = append(errs, errors.New("DATABASE_URL must be set in prod"))
+	case dbURL != "":
+		if u, err := url.Parse(dbURL); err != nil || (u.Scheme != "postgres" && u.Scheme != "postgresql") {
+			// Do not put the URL in the error: it can contain a password.
+			errs = append(errs, errors.New("DATABASE_URL must be a postgres:// URL"))
+		} else {
+			cfg.DatabaseURL = dbURL
 		}
 	}
 	return cfg, errors.Join(errs...)

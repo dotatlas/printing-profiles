@@ -1,0 +1,23 @@
+# Local development services. Start them with "docker compose up -d".
+name: printing-profiles
+
+services:
+  db:
+    image: postgres:17
+    environment:
+      # Local-only credentials. Production uses its own secret settings.
+      POSTGRES_USER: printing
+      POSTGRES_PASSWORD: printing
+      POSTGRES_DB: printing
+    ports:
+      - "5432:5432"
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "printing", "-d", "printing"]
+      interval: 2s
+      timeout: 3s
+      retries: 15
+
+volumes:
+  db-data:

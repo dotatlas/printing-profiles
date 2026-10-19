@@ -16,7 +16,8 @@ func TestLoadUsesDevDefaultsWhenNothingIsSet(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := Config{Env: "dev", Port: 8080, SiteOrigin: "http://localhost:3000"}
+	want := Config{Env: "dev", Port: 8080, SiteOrigin: "http://localhost:3000",
+		DatabaseURL: "postgres://printing:printing@localhost:5432/printing?sslmode=disable"}
 	if cfg != want {
 		t.Errorf("got %+v, want %+v", cfg, want)
 	}
@@ -25,12 +26,14 @@ func TestLoadUsesDevDefaultsWhenNothingIsSet(t *testing.T) {
 func TestLoadReadsEveryVariable(t *testing.T) {
 	cfg, err := Load(env(map[string]string{
 		"ENV": "prod", "PORT": "9000", "SITE_ORIGIN": "https://printingprofiles.com",
+		"DATABASE_URL": "postgres://u:p@db.example:5432/pp?sslmode=require",
 	}))
 
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := Config{Env: "prod", Port: 9000, SiteOrigin: "https://printingprofiles.com"}
+	want := Config{Env: "prod", Port: 9000, SiteOrigin: "https://printingprofiles.com",
+		DatabaseURL: "postgres://u:p@db.example:5432/pp?sslmode=require"}
 	if cfg != want {
 		t.Errorf("got %+v, want %+v", cfg, want)
 	}
@@ -59,6 +62,9 @@ func TestLoadRejectsBadValues(t *testing.T) {
 		"origin with ftp scheme": {"SITE_ORIGIN": "ftp://printingprofiles.com"},
 		"prod without origin":    {"ENV": "prod"},
 		"prod with http origin":  {"ENV": "prod", "SITE_ORIGIN": "http://printingprofiles.com"},
+		"prod without database":  {"ENV": "prod", "SITE_ORIGIN": "https://printingprofiles.com"},
+		"database not postgres":  {"DATABASE_URL": "mysql://u:p@localhost/pp"},
+		"database not a url":     {"DATABASE_URL": "::not a url"},
 	}
 	for name, vars := range cases {
 		t.Run(name, func(t *testing.T) {
@@ -79,5 +85,16 @@ func TestLoadReportsEveryBadValueAtOnce(t *testing.T) {
 		if !strings.Contains(err.Error(), name) {
 			t.Errorf("error %q does not name %s", err, name)
 		}
+	}
+}
+
+func TestLoadNeverPutsTheDatabaseURLInErrors(t *testing.T) {
+	_, err := Load(env(map[string]string{"DATABASE_URL": "mysql://user:secret-password@localhost/pp"}))
+
+	if err == nil {
+		t.Fatal("want an error, got nil")
+	}
+	if strings.Contains(err.Error(), "secret-password") {
+		t.Errorf("error %q shows the password", err)
 	}
 }
