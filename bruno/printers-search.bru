@@ -1,0 +1,18 @@
+meta {
+  name: printers search
+  type: http
+  seq: 2
+}
+
+get {
+  url: {{baseUrl}}/api/v1/printers?q=bambu p1s
+  body: none
+  auth: none
+}
+
+assert {
+  res.status: eq 200
+  res.body.items.length: eq 1
+  res.body.items[0].slug: eq bambu-lab-p1s
+  res.body.items[0].brand.name: eq Bambu Lab
+}

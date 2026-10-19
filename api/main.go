@@ -11,9 +11,11 @@ import (
 	"os/signal"
 	"syscall"
 
+	"github.com/jackc/pgx/v5/pgxpool"
 	_ "github.com/jackc/pgx/v5/stdlib" // registers the "pgx" driver for database/sql, which goose uses
 
 	"github.com/dotatlas/printing-profiles/api/internal/config"
+	"github.com/dotatlas/printing-profiles/api/internal/db"
 	"github.com/dotatlas/printing-profiles/api/internal/httpapi"
 	"github.com/dotatlas/printing-profiles/api/migrations"
 )
@@ -44,11 +46,20 @@ func main() {
 	log.Info("stopped", "mode", mode)
 }
 
-// serve loads the settings, opens the port and runs the API until a stop signal comes. main calls it for "serve".
+// serve loads the settings, connects to the database, opens the port and runs the API until a stop signal comes. main calls it for "serve".
 func serve(log *slog.Logger) error {
 	cfg, err := config.Load(os.Getenv)
 	if err != nil {
 		return fmt.Errorf("bad settings: %w", err)
+	}
+	pool, err := pgxpool.New(context.Background(), cfg.DatabaseURL)
+	if err != nil {
+		return fmt.Errorf("database: %w", err)
+	}
+	defer pool.Close()
+	// Stop now when the database cannot be reached, not at the first request.
+	if err := pool.Ping(context.Background()); err != nil {
+		return fmt.Errorf("database: %w", err)
 	}
 	ln, err := net.Listen("tcp", fmt.Sprintf(":%d", cfg.Port))
 	if err != nil {
@@ -59,7 +70,7 @@ func serve(log *slog.Logger) error {
 	defer stop()
 
 	log.Info("listening", "port", cfg.Port, "env", cfg.Env, "site_origin", cfg.SiteOrigin)
-	srv := &httpapi.Server{Log: log, Cfg: cfg}
+	srv := &httpapi.Server{Log: log, Cfg: cfg, DB: db.New(pool)}
 	return httpapi.Serve(ctx, ln, srv.Handler())
 }
 

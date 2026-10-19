@@ -27,7 +27,105 @@ paths:
                 $ref: "#/components/schemas/Health"
         default:
           $ref: "#/components/responses/Problem"
+  /api/v1/printers:
+    get:
+      operationId: listPrinters
+      summary: List printers, with search and pages
+      security: [] # Public: no sign-in needed.
+      parameters:
+        - $ref: "#/components/parameters/Search"
+        - $ref: "#/components/parameters/Cursor"
+        - $ref: "#/components/parameters/Limit"
+      responses:
+        "200":
+          description: One page of printers, in slug order.
+          headers:
+            X-Request-ID:
+              $ref: "#/components/headers/RequestID"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PrinterPage"
+        "400":
+          $ref: "#/components/responses/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
+  /api/v1/materials:
+    get:
+      operationId: listMaterials
+      summary: List filaments, with search, a type filter and pages
+      security: [] # Public: no sign-in needed.
+      parameters:
+        - $ref: "#/components/parameters/Search"
+        - name: type
+          in: query
+          description: Only filaments of this type.
+          schema:
+            $ref: "#/components/schemas/MaterialType"
+        - $ref: "#/components/parameters/Cursor"
+        - $ref: "#/components/parameters/Limit"
+      responses:
+        "200":
+          description: One page of filaments, in slug order.
+          headers:
+            X-Request-ID:
+              $ref: "#/components/headers/RequestID"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MaterialPage"
+        "400":
+          $ref: "#/components/responses/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
+  /api/v1/slicers:
+    get:
+      operationId: listSlicers
+      summary: List slicers, with search and pages
+      security: [] # Public: no sign-in needed.
+      parameters:
+        - $ref: "#/components/parameters/Search"
+        - $ref: "#/components/parameters/Cursor"
+        - $ref: "#/components/parameters/Limit"
+      responses:
+        "200":
+          description: One page of slicers, in slug order.
+          headers:
+            X-Request-ID:
+              $ref: "#/components/headers/RequestID"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SlicerPage"
+        "400":
+          $ref: "#/components/responses/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
 components:
+  parameters:
+    Search:
+      name: q
+      in: query
+      description: Search words. Every word must appear, in any order, and case does not matter.
+      schema:
+        type: string
+        maxLength: 100
+    Cursor:
+      name: cursor
+      in: query
+      description: The next_cursor value from the page before. Leave it out for the first page.
+      schema:
+        type: string
+        maxLength: 100
+    Limit:
+      name: limit
+      in: query
+      description: The number of items on one page.
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 20
   headers:
     RequestID:
       description: A random ID for this request. The API also writes it in its log line for the request.
@@ -52,6 +150,91 @@ components:
         status:
           type: string
           const: ok
+    Brand:
+      type: object
+      required: [slug, name]
+      properties:
+        slug:
+          type: string
+          example: bambu-lab
+        name:
+          type: string
+          example: Bambu Lab
+    Printer:
+      type: object
+      required: [slug, model, brand]
+      properties:
+        slug:
+          type: string
+          example: bambu-lab-p1s
+        model:
+          type: string
+          example: P1S
+        brand:
+          $ref: "#/components/schemas/Brand"
+    MaterialType:
+      type: string
+      enum: [PLA, PETG, ABS, ASA, TPU, PA, PC]
+    Material:
+      type: object
+      required: [slug, product_name, type, diameter_mm, brand]
+      properties:
+        slug:
+          type: string
+          example: prusa-research-prusament-petg
+        product_name:
+          type: string
+          example: Prusament PETG
+        type:
+          $ref: "#/components/schemas/MaterialType"
+        diameter_mm:
+          type: number
+          enum: [1.75, 2.85]
+        brand:
+          $ref: "#/components/schemas/Brand"
+    Slicer:
+      type: object
+      required: [slug, name]
+      properties:
+        slug:
+          type: string
+          example: orcaslicer
+        name:
+          type: string
+          example: OrcaSlicer
+    PrinterPage:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/Printer"
+        next_cursor:
+          type: string
+          description: Send it as cursor to get the next page. It is missing on the last page.
+    MaterialPage:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/Material"
+        next_cursor:
+          type: string
+          description: Send it as cursor to get the next page. It is missing on the last page.
+    SlicerPage:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/Slicer"
+        next_cursor:
+          type: string
+          description: Send it as cursor to get the next page. It is missing on the last page.
     Problem:
       type: object
       required: [type, title, status]

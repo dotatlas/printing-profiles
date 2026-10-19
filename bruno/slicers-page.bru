@@ -1,0 +1,23 @@
+meta {
+  name: slicers page
+  type: http
+  seq: 4
+}
+
+get {
+  url: {{baseUrl}}/api/v1/slicers?limit=4
+  body: none
+  auth: none
+}
+
+assert {
+  res.status: eq 200
+  res.body.items.length: eq 4
+}
+
+tests {
+  test("next_cursor is the last slug on the page", function () {
+    const body = res.getBody();
+    expect(body.next_cursor).to.equal(body.items[3].slug);
+  });
+}

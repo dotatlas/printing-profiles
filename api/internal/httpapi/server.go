@@ -10,18 +10,23 @@ import (
 	"time"
 
 	"github.com/dotatlas/printing-profiles/api/internal/config"
+	"github.com/dotatlas/printing-profiles/api/internal/db"
 )
 
 // Server holds what the handlers need. main makes one and gives its Handler to Serve.
 type Server struct {
 	Log *slog.Logger
 	Cfg config.Config
+	DB  *db.Queries // the sqlc queries; nil in tests that do not touch the database
 }
 
 // Handler returns all routes inside the middleware. Serve runs it, and the tests call it directly.
 func (s *Server) Handler() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /api/v1/health", s.handleHealth)
+	mux.HandleFunc("GET /api/v1/printers", s.handlePrinters)
+	mux.HandleFunc("GET /api/v1/materials", s.handleMaterials)
+	mux.HandleFunc("GET /api/v1/slicers", s.handleSlicers)
 
 	// The last wrapper runs first. requestID is last, so every answer and log line has an ID.
 	var h http.Handler = problemsForUnmatched(mux)

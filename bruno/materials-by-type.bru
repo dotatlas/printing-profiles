@@ -1,0 +1,26 @@
+meta {
+  name: materials by type
+  type: http
+  seq: 3
+}
+
+get {
+  url: {{baseUrl}}/api/v1/materials?type=TPU
+  body: none
+  auth: none
+}
+
+assert {
+  res.status: eq 200
+}
+
+tests {
+  test("every material is TPU and 1.75 mm", function () {
+    const items = res.getBody().items;
+    expect(items.length).to.be.above(0);
+    items.forEach((m) => {
+      expect(m.type).to.equal("TPU");
+      expect(m.diameter_mm).to.equal(1.75);
+    });
+  });
+}

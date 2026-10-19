@@ -20,6 +20,12 @@ func writeProblem(w http.ResponseWriter, status int, detail string) {
 	_ = json.NewEncoder(w).Encode(problem{Type: "about:blank", Title: http.StatusText(status), Status: status, Detail: detail})
 }
 
+// fail writes err to the log with the request ID and sends a 500 problem without details. Handlers call it for errors that they do not expect.
+func (s *Server) fail(w http.ResponseWriter, r *http.Request, err error) {
+	s.Log.Error("request failed", "request_id", requestIDFrom(r.Context()), "err", err)
+	writeProblem(w, http.StatusInternalServerError, "")
+}
+
 // problemsForUnmatched sends the router's own 404 and 405 answers as problem details. Handler puts it around the router.
 func problemsForUnmatched(mux *http.ServeMux) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

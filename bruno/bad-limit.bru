@@ -1,0 +1,17 @@
+meta {
+  name: bad limit
+  type: http
+  seq: 5
+}
+
+get {
+  url: {{baseUrl}}/api/v1/printers?limit=0
+  body: none
+  auth: none
+}
+
+assert {
+  res.status: eq 400
+  res.headers["content-type"]: eq application/problem+json
+  res.body.status: eq 400
+}
