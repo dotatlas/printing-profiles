@@ -24,7 +24,11 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /api/v1/health", s.handleHealth)
 
 	// The last wrapper runs first. requestID is last, so every answer and log line has an ID.
-	var h http.Handler = mux
+	var h http.Handler = problemsForUnmatched(mux)
+	h = limitBody(h)
+	h = s.cors(h)
+	h = securityHeaders(h)
+	h = s.recoverPanics(h)
 	h = s.logRequests(h)
 	h = requestID(h)
 	return h

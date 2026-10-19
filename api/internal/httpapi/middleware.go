@@ -4,9 +4,14 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/hex"
+	"fmt"
 	"net/http"
+	"runtime/debug"
 	"time"
 )
+
+// maxBodyBytes is the largest request body that the API reads. Upload files go to S3, not through the API.
+const maxBodyBytes = 1 << 20
 
 // ctxKey is the type of the context keys in this package, so they cannot clash with keys of other packages.
 type ctxKey int
@@ -74,5 +79,70 @@ func (s *Server) logRequests(next http.Handler) http.Handler {
 			"path", r.URL.Path,
 			"status", sw.status,
 			"duration_ms", time.Since(start).Milliseconds())
+	})
+}
+
+// recoverPanics changes a panic in a handler into a 500 answer and a log line, so the server continues to run.
+func (s *Server) recoverPanics(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		defer func() {
+			v := recover()
+			if v == nil {
+				return
+			}
+			if v == http.ErrAbortHandler {
+				panic(v) // net/http uses this panic to stop an answer on purpose. Let it continue.
+			}
+			s.Log.Error("panic",
+				"request_id", requestIDFrom(r.Context()),
+				"panic", fmt.Sprint(v),
+				"stack", string(debug.Stack()))
+			writeProblem(w, http.StatusInternalServerError, "")
+		}()
+		next.ServeHTTP(w, r)
+	})
+}
+
+// securityHeaders adds the browser security headers to every answer. Handler runs it before the router.
+func securityHeaders(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		h := w.Header()
+		h.Set("X-Content-Type-Options", "nosniff")
+		// The API sends only JSON, so a browser must not run or frame anything from it.
+		h.Set("Content-Security-Policy", "default-src 'none'; frame-ancestors 'none'")
+		h.Set("Referrer-Policy", "no-referrer")
+		h.Set("Strict-Transport-Security", "max-age=63072000; includeSubDomains")
+		next.ServeHTTP(w, r)
+	})
+}
+
+// cors lets only the site's own origin call the API from a browser, with cookies. Handler runs it before the router.
+func (s *Server) cors(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		h := w.Header()
+		h.Add("Vary", "Origin") // Caches must keep the answers for different origins apart.
+		if r.Header.Get("Origin") != s.Cfg.SiteOrigin {
+			next.ServeHTTP(w, r) // No CORS headers, so the browser blocks the answer for other origins.
+			return
+		}
+		h.Set("Access-Control-Allow-Origin", s.Cfg.SiteOrigin)
+		h.Set("Access-Control-Allow-Credentials", "true")
+		// A preflight asks which methods and headers are allowed, before the browser sends the real request.
+		if r.Method == http.MethodOptions && r.Header.Get("Access-Control-Request-Method") != "" {
+			h.Set("Access-Control-Allow-Methods", "GET, POST, PATCH, DELETE")
+			h.Set("Access-Control-Allow-Headers", "Content-Type")
+			h.Set("Access-Control-Max-Age", "600")
+			w.WriteHeader(http.StatusNoContent)
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
+// limitBody stops a handler from reading more than maxBodyBytes of a request body. Handler runs it before the router.
+func limitBody(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		r.Body = http.MaxBytesReader(w, r.Body, maxBodyBytes)
+		next.ServeHTTP(w, r)
 	})
 }

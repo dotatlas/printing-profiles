@@ -2,6 +2,7 @@ openapi: 3.1.0
 info:
   title: Printing Profiles API
   version: 0.1.0
+  description: Every answer has an X-Request-ID header. Every error is RFC 9457 problem details.
   license:
     name: AGPL-3.0-only
     identifier: AGPL-3.0-only
@@ -17,11 +18,32 @@ paths:
       responses:
         "200":
           description: The API is up.
+          headers:
+            X-Request-ID:
+              $ref: "#/components/headers/RequestID"
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/Health"
+        default:
+          $ref: "#/components/responses/Problem"
 components:
+  headers:
+    RequestID:
+      description: A random ID for this request. The API also writes it in its log line for the request.
+      schema:
+        type: string
+        pattern: "^[0-9a-f]{32}$"
+  responses:
+    Problem:
+      description: An error, in the RFC 9457 problem details format.
+      headers:
+        X-Request-ID:
+          $ref: "#/components/headers/RequestID"
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/Problem"
   schemas:
     Health:
       type: object
@@ -30,3 +52,20 @@ components:
         status:
           type: string
           const: ok
+    Problem:
+      type: object
+      required: [type, title, status]
+      properties:
+        type:
+          type: string
+          description: Always "about:blank" for now; the title and status tell the error.
+          example: about:blank
+        title:
+          type: string
+          example: Not Found
+        status:
+          type: integer
+          example: 404
+        detail:
+          type: string
+          description: More about this error, when there is something useful and safe to say.
