@@ -1,0 +1,32 @@
+openapi: 3.1.0
+info:
+  title: Printing Profiles API
+  version: 0.1.0
+  license:
+    name: AGPL-3.0-only
+    identifier: AGPL-3.0-only
+servers:
+  - url: http://localhost:8080
+    description: Local development
+paths:
+  /api/v1/health:
+    get:
+      operationId: getHealth
+      summary: Check that the API is up
+      security: [] # Public: no sign-in needed.
+      responses:
+        "200":
+          description: The API is up.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Health"
+components:
+  schemas:
+    Health:
+      type: object
+      required: [status]
+      properties:
+        status:
+          type: string
+          const: ok

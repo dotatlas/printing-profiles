@@ -3,6 +3,10 @@
 .env.*
 !.env.example
 
+# Go build output
+/api/api
+*.exe
+
 # OS files
 .DS_Store
 Thumbs.db
