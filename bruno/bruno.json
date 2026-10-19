@@ -1,0 +1,6 @@
+{
+  "version": "1",
+  "name": "printing-profiles",
+  "type": "collection",
+  "ignore": ["node_modules", ".git"]
+}

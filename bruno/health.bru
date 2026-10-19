@@ -1,0 +1,27 @@
+meta {
+  name: health
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{baseUrl}}/api/v1/health
+  body: none
+  auth: none
+}
+
+assert {
+  res.status: eq 200
+  res.body.status: eq ok
+}
+
+tests {
+  test("has a 32-character hex request ID", function () {
+    expect(res.getHeader("x-request-id")).to.match(/^[0-9a-f]{32}$/);
+  });
+
+  test("has the security headers", function () {
+    expect(res.getHeader("x-content-type-options")).to.equal("nosniff");
+    expect(res.getHeader("content-security-policy")).to.equal("default-src 'none'; frame-ancestors 'none'");
+  });
+}
