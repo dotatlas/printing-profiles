@@ -30,6 +30,7 @@ npm --prefix web run lint
 npm --prefix web run typecheck
 npm --prefix web test                # Vitest + Testing Library
 npm --prefix web run gen:api         # regenerate web/lib/api-types.ts after api/openapi.yaml changes
+docker build -t printing-profiles-web ./web       # site image (port 3000; set API_URL; runs with --read-only)
 ```
 
 ## Conventions
