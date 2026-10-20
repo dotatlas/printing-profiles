@@ -72,3 +72,6 @@ docker build -t printing-profiles-web ./web       # site image (port 3000; set A
   - Conventional Commits (`feat: ...`, `fix: ...`), lowercase, no emojis, no trailing period.
   - One logical change per commit: the code together with its tests, API contract, Bruno requests and docs. Aim for about 100-400 changed lines; split bigger changes by logical part.
   - Every commit builds and passes the tests where it stands.
+- **CI** (`.github/workflows/ci.yml`) runs these checks on every push to `main` and every pull request, with a read-only token:
+  - Third-party actions are pinned by full commit SHA, with the version in a comment. Pick releases that are at least 7 days old.
+  - Tools that CI downloads (govulncheck, Redocly, the Bruno CLI) are pinned to exact versions.
