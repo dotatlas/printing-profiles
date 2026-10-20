@@ -1,6 +1,6 @@
 module github.com/dotatlas/printing-profiles/api
 
-go 1.27.2
+go 1.27.3
 
 require (
 	github.com/jackc/pgx/v5 v5.11.0

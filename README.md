@@ -6,7 +6,7 @@ A community website for sharing 3D printing slicer presets: settings for a speci
 
 ## Run the API locally
 
-Needs Go 1.27.2 or newer and Docker. Dev needs no settings; `.env.example` lists the variables.
+Needs Go 1.27.3 or newer and Docker. Dev needs no settings; `.env.example` lists the variables.
 
 ```bash
 docker compose up -d       # local PostgreSQL
