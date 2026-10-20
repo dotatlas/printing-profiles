@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"encoding/json"
 	"net/http"
 	"strconv"
 	"strings"
@@ -33,13 +34,14 @@ type printerJSON struct {
 	Brand brandJSON `json:"brand"`
 }
 
-// materialJSON is one filament in the answer of handleMaterials.
+// materialJSON is one filament in the answer of handleMaterials. The ListMaterials query makes the Colors JSON list.
 type materialJSON struct {
-	Slug        string    `json:"slug"`
-	ProductName string    `json:"product_name"`
-	Type        string    `json:"type"`
-	DiameterMM  float64   `json:"diameter_mm"`
-	Brand       brandJSON `json:"brand"`
+	Slug        string          `json:"slug"`
+	ProductName string          `json:"product_name"`
+	Type        string          `json:"type"`
+	DiameterMM  float64         `json:"diameter_mm"`
+	Brand       brandJSON       `json:"brand"`
+	Colors      json.RawMessage `json:"colors"`
 }
 
 // slicerJSON is one slicer in the answer of handleSlicers.
@@ -122,7 +124,7 @@ func (s *Server) handlePrinters(w http.ResponseWriter, r *http.Request) {
 	writePage(w, items, lq.limit, func(p printerJSON) string { return p.Slug })
 }
 
-// handleMaterials sends one page of the filaments that match the search and the type filter. The router calls it for GET /api/v1/materials.
+// handleMaterials sends one page of the filaments that match the search, type and color filters. The router calls it for GET /api/v1/materials.
 func (s *Server) handleMaterials(w http.ResponseWriter, r *http.Request) {
 	lq, ok := readListQuery(w, r)
 	if !ok {
@@ -133,8 +135,16 @@ func (s *Server) handleMaterials(w http.ResponseWriter, r *http.Request) {
 		writeProblem(w, http.StatusBadRequest, "type must be one of PLA, PETG, ABS, ASA, TPU, PA, PC")
 		return
 	}
+	color := r.URL.Query().Get("color")
+	if len(color) > maxSearchLength {
+		writeProblem(w, http.StatusBadRequest, "color must be 100 characters or fewer")
+		return
+	}
+	if color != "" {
+		color = "%" + likeEscaper.Replace(color) + "%"
+	}
 	rows, err := s.DB.ListMaterials(r.Context(), db.ListMaterialsParams{
-		Patterns: lq.patterns, Type: kind, After: lq.after, MaxRows: lq.limit + 1})
+		Patterns: lq.patterns, Type: kind, Color: color, After: lq.after, MaxRows: lq.limit + 1})
 	if err != nil {
 		s.fail(w, r, err)
 		return
@@ -142,7 +152,7 @@ func (s *Server) handleMaterials(w http.ResponseWriter, r *http.Request) {
 	items := make([]materialJSON, 0, len(rows))
 	for _, m := range rows {
 		items = append(items, materialJSON{Slug: m.Slug, ProductName: m.ProductName, Type: m.Type,
-			DiameterMM: m.DiameterMm, Brand: brandJSON{Slug: m.BrandSlug, Name: m.BrandName}})
+			DiameterMM: m.DiameterMm, Brand: brandJSON{Slug: m.BrandSlug, Name: m.BrandName}, Colors: m.Colors})
 	}
 	writePage(w, items, lq.limit, func(m materialJSON) string { return m.Slug })
 }

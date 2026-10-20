@@ -23,6 +23,13 @@ type Material struct {
 	Slug        string
 }
 
+type MaterialColor struct {
+	ID         int64
+	MaterialID int64
+	Name       string
+	Hex        string
+}
+
 type Printer struct {
 	ID      int64
 	BrandID int64

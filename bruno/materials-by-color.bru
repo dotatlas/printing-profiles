@@ -1,0 +1,26 @@
+meta {
+  name: materials by color
+  type: http
+  seq: 4
+}
+
+get {
+  url: {{baseUrl}}/api/v1/materials?color=white
+  body: none
+  auth: none
+}
+
+assert {
+  res.status: eq 200
+}
+
+tests {
+  test("every material is sold in a white color", function () {
+    const items = res.getBody().items;
+    expect(items.length).to.be.above(0);
+    items.forEach((m) => {
+      expect(m.colors.some((c) => c.name.toLowerCase().includes("white"))).to.equal(true);
+      m.colors.forEach((c) => expect(c.hex).to.match(/^#[0-9a-f]{6}$/));
+    });
+  });
+}

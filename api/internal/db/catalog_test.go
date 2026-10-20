@@ -2,6 +2,8 @@ package db_test
 
 import (
 	"context"
+	"encoding/json"
+	"reflect"
 	"testing"
 
 	"github.com/dotatlas/printing-profiles/api/internal/db"
@@ -40,6 +42,34 @@ func TestListMaterialsFiltersByType(t *testing.T) {
 		if r.Type != "TPU" || r.DiameterMm != 1.75 {
 			t.Errorf("row %+v, want type TPU and diameter 1.75", r)
 		}
+	}
+}
+
+func TestListMaterialsFiltersByColorAndListsTheColors(t *testing.T) {
+	pool := dbtest.New(t)
+	ctx := context.Background()
+	if _, err := pool.Exec(ctx, `INSERT INTO material_colors (material_id, name, hex)
+		SELECT id, 'Glow Green', '#7cff4f' FROM materials WHERE slug = 'overture-tpu'`); err != nil {
+		t.Fatal(err)
+	}
+
+	rows, err := db.New(pool).ListMaterials(ctx, db.ListMaterialsParams{
+		Patterns: []string{}, Color: "%glow%", After: "", MaxRows: 100,
+	})
+
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(rows) != 1 || rows[0].Slug != "overture-tpu" {
+		t.Fatalf("rows = %+v, want only overture-tpu", rows)
+	}
+	var colors []struct{ Name, Hex string }
+	if err := json.Unmarshal(rows[0].Colors, &colors); err != nil {
+		t.Fatalf("colors %s are not JSON: %v", rows[0].Colors, err)
+	}
+	want := []struct{ Name, Hex string }{{"Black", "#000000"}, {"Glow Green", "#7cff4f"}, {"White", "#ffffff"}}
+	if !reflect.DeepEqual(colors, want) {
+		t.Errorf("colors = %+v, want %+v in name order", colors, want)
 	}
 }
 

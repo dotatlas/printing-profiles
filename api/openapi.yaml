@@ -53,7 +53,7 @@ paths:
   /api/v1/materials:
     get:
       operationId: listMaterials
-      summary: List filaments, with search, a type filter and pages
+      summary: List filaments, with search, type and color filters and pages
       security: [] # Public: no sign-in needed.
       parameters:
         - $ref: "#/components/parameters/Search"
@@ -62,6 +62,13 @@ paths:
           description: Only filaments of this type.
           schema:
             $ref: "#/components/schemas/MaterialType"
+        - name: color
+          in: query
+          description: Only filaments sold in a color whose name contains this text. Case does not matter.
+          schema:
+            type: string
+            maxLength: 100
+            example: black
         - $ref: "#/components/parameters/Cursor"
         - $ref: "#/components/parameters/Limit"
       responses:
@@ -177,7 +184,7 @@ components:
       enum: [PLA, PETG, ABS, ASA, TPU, PA, PC]
     Material:
       type: object
-      required: [slug, product_name, type, diameter_mm, brand]
+      required: [slug, product_name, type, diameter_mm, brand, colors]
       properties:
         slug:
           type: string
@@ -192,6 +199,22 @@ components:
           enum: [1.75, 2.85]
         brand:
           $ref: "#/components/schemas/Brand"
+        colors:
+          type: array
+          description: The colors that this filament is sold in, in name order.
+          items:
+            $ref: "#/components/schemas/Color"
+    Color:
+      type: object
+      required: [name, hex]
+      properties:
+        name:
+          type: string
+          example: Black
+        hex:
+          type: string
+          pattern: "^#[0-9a-f]{6}$"
+          example: "#000000"
     Slicer:
       type: object
       required: [slug, name]

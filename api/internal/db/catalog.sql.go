@@ -10,19 +10,24 @@ import (
 )
 
 const listMaterials = `-- name: ListMaterials :many
-SELECT m.slug, m.product_name, m.type, m.diameter_mm::float8 AS diameter_mm, b.slug AS brand_slug, b.name AS brand_name
+SELECT m.slug, m.product_name, m.type, m.diameter_mm::float8 AS diameter_mm, b.slug AS brand_slug, b.name AS brand_name,
+       (SELECT coalesce(json_agg(json_build_object('name', c.name, 'hex', c.hex) ORDER BY c.name), '[]')
+        FROM material_colors c WHERE c.material_id = m.id)::json AS colors
 FROM materials m
 JOIN brands b ON b.id = m.brand_id
 WHERE (b.name || ' ' || m.product_name || ' ' || m.type) ILIKE ALL ($1::text[])
   AND ($2::text = '' OR m.type = $2::text)
-  AND m.slug > $3::text
+  AND ($3::text = '' OR EXISTS (
+        SELECT 1 FROM material_colors c WHERE c.material_id = m.id AND c.name ILIKE $3::text))
+  AND m.slug > $4::text
 ORDER BY m.slug
-LIMIT $4::int
+LIMIT $5::int
 `
 
 type ListMaterialsParams struct {
 	Patterns []string
 	Type     string
+	Color    string
 	After    string
 	MaxRows  int32
 }
@@ -34,12 +39,14 @@ type ListMaterialsRow struct {
 	DiameterMm  float64
 	BrandSlug   string
 	BrandName   string
+	Colors      []byte
 }
 
 func (q *Queries) ListMaterials(ctx context.Context, arg ListMaterialsParams) ([]ListMaterialsRow, error) {
 	rows, err := q.db.Query(ctx, listMaterials,
 		arg.Patterns,
 		arg.Type,
+		arg.Color,
 		arg.After,
 		arg.MaxRows,
 	)
@@ -57,6 +64,7 @@ func (q *Queries) ListMaterials(ctx context.Context, arg ListMaterialsParams) ([
 			&i.DiameterMm,
 			&i.BrandSlug,
 			&i.BrandName,
+			&i.Colors,
 		); err != nil {
 			return nil, err
 		}
@@ -94,6 +102,7 @@ type ListPrintersRow struct {
 
 // Read-only catalog queries. Each list returns rows in slug order after a cursor (keyset pagination).
 // Every pattern in "patterns" must match (ILIKE ALL), so each search word must appear somewhere in the text.
+// The material color filter is one ILIKE pattern, or an empty text for all colors. "colors" is a JSON list of {name, hex}.
 func (q *Queries) ListPrinters(ctx context.Context, arg ListPrintersParams) ([]ListPrintersRow, error) {
 	rows, err := q.db.Query(ctx, listPrinters, arg.Patterns, arg.After, arg.MaxRows)
 	if err != nil {

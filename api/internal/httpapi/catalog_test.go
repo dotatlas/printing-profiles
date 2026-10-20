@@ -101,6 +101,23 @@ func TestMaterialTypeFilterIgnoresCase(t *testing.T) {
 	}
 }
 
+func TestMaterialColorFilterMatchesPartOfTheNameAndSendsTheColors(t *testing.T) {
+	s := newCatalogServer(t)
+	page := getPage[materialJSON](t, s, "/api/v1/materials?color=WHI&q=polyterra")
+
+	if len(page.Items) != 1 || page.Items[0].Slug != "polymaker-polyterra-pla" {
+		t.Fatalf("items = %+v, want only polymaker-polyterra-pla", page.Items)
+	}
+	var colors []struct{ Name, Hex string }
+	if err := json.Unmarshal(page.Items[0].Colors, &colors); err != nil || len(colors) != 2 || colors[1].Hex != "#ffffff" {
+		t.Errorf("colors = %s (%v), want Black and White with their hex codes", page.Items[0].Colors, err)
+	}
+
+	if none := getPage[materialJSON](t, s, "/api/v1/materials?color=%25"); len(none.Items) != 0 {
+		t.Errorf("color=%% found %d materials, want none (a wildcard is plain text)", len(none.Items))
+	}
+}
+
 func TestBadListParametersAreProblem400(t *testing.T) {
 	s := newCatalogServer(t)
 	paths := []string{
@@ -110,6 +127,7 @@ func TestBadListParametersAreProblem400(t *testing.T) {
 		"/api/v1/slicers?q=" + strings.Repeat("a", maxSearchLength+1),
 		"/api/v1/slicers?cursor=" + strings.Repeat("a", maxSearchLength+1),
 		"/api/v1/materials?type=wood",
+		"/api/v1/materials?color=" + strings.Repeat("a", maxSearchLength+1),
 	}
 	for _, path := range paths {
 		rec := serve(s, httptest.NewRequest(http.MethodGet, path, nil))
