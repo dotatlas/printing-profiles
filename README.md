@@ -4,11 +4,13 @@ A community website for sharing 3D printing slicer presets: settings for a speci
 
 ## Run the API locally
 
-Needs Go 1.27 or newer. Dev needs no settings; `.env.example` lists the variables.
+Needs Go 1.27.2 or newer and Docker. Dev needs no settings; `.env.example` lists the variables.
 
 ```bash
-go -C api run . serve      # then open http://localhost:8080/api/v1/health
-go -C api test ./...
+docker compose up -d       # local PostgreSQL
+go -C api run . migrate    # create the tables and the starter catalog
+go -C api run . serve      # then open http://localhost:8080/api/v1/printers
+go -C api test ./...       # needs the database; add -short to skip the integration tests
 ```
 
 ## License
