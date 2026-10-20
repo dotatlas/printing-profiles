@@ -65,7 +65,7 @@ docker build -t printing-profiles-web ./web       # site image (port 3000; set A
   - npm installs only versions at least 7 days old, with exact pins (`web/.npmrc`).
   - Validate input at the API boundary.
   - Check authorization on every write.
-  - Never store passwords (sign-in is OAuth only).
+  - Never store passwords (sign-in is GitHub or Discord OAuth, or a one-time email link).
   - Never log tokens, session IDs or personal data.
   - Validate uploads by their content, never their file name.
 - **Commits:**
