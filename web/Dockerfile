@@ -6,6 +6,9 @@ ENV NEXT_TELEMETRY_DISABLED=1
 COPY package.json package-lock.json .npmrc ./
 RUN npm ci --no-audit --no-fund
 COPY . .
+# The build puts SITE_URL into the absolute URLs of link previews: docker build --build-arg SITE_URL=https://...
+ARG SITE_URL=http://localhost:3000
+ENV SITE_URL=$SITE_URL
 RUN npm run build
 
 # Run stage: only the standalone output, on a Node.js image with no shell, as a user that is not root.

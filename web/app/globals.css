@@ -17,7 +17,8 @@
   --color-ink: light-dark(#18181b, #f4f4f5);
   --color-muted: light-dark(#52525b, #a1a1aa);
   --color-line: light-dark(#e4e4e7, #27272a);
-  --color-accent: light-dark(#0f766e, #5eead4);
+  /* The two blues of the logo (brand/logo.png). Both have a contrast of at least 5:1 on their page color. */
+  --color-accent: light-dark(#296aa2, #3e86bf);
 }
 
 @layer base {

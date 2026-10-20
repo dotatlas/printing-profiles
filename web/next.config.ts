@@ -11,6 +11,8 @@ const securityHeaders = [
 const nextConfig: NextConfig = {
   output: "standalone",
   poweredByHeader: false,
+  // The images are already small. The server sends them as they are and writes no image cache to the read-only disk.
+  images: { unoptimized: true },
   cacheComponents: true,
   partialPrefetching: true,
   turbopack: {

@@ -9,6 +9,7 @@ api/                 Go module: main.go, internal/<pkg>/ (one level), migrations
 web/                 Next.js app (TypeScript): app/ (routes, layout, theme), components/, lib/ (API reads, generated types)
 infra/               OpenTofu (never state files or secrets)
 bruno/               API collection: one request per route, with assertions
+brand/               logo.png: the master logo (2048 px, transparent); every logo file of the site is cut from it
 docker-compose.yml   local PostgreSQL
 .env.example         every environment variable, with placeholders
 ```
@@ -48,7 +49,8 @@ docker build -t printing-profiles-web ./web       # site image (port 3000; set A
   - `strict`, no `any`.
   - API types are generated from `api/openapi.yaml`, never written by hand.
   - Server components for public data. Client components only where interaction needs them.
-  - Colors only from the theme tokens in `web/app/globals.css` (`page`, `ink`, `muted`, `line`, `accent`), never raw values. Each token has a light and a dark value.
+  - Colors only from the theme tokens in `web/app/globals.css` (`page`, `ink`, `muted`, `line`, `accent`), never raw values. Each token has a light and a dark value. The accent is the logo's blue.
+  - The logo files in `web/app` are cut from `brand/logo.png`, trimmed to the drawing: `logo.png` 96 px (header), `icon.png` 192 px, `apple-icon.png` 180 px on white (iOS paints transparency black), `favicon.ico` 16/32/48 px, `opengraph-image.png` 1200x630 (logo, name and tagline on white). Cut them again when the logo changes.
 - **Comments:**
   - Every function and method gets a one-line doc comment: what it does, and how it relates to other functions.
   - Comments inside functions are sparse, only where a line isn't obvious.
