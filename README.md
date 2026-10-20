@@ -15,7 +15,7 @@ go -C api test ./...       # needs the database; add -short to skip the integrat
 
 ## Run the site locally
 
-Needs Node.js 24 or newer.
+Needs Node.js 24 or newer. Start the API first: the home page reads the catalog from it (`API_URL`, by default `http://localhost:8080`).
 
 ```bash
 npm --prefix web ci          # install the exact package versions
