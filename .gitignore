@@ -7,6 +7,12 @@
 /api/api
 *.exe
 
+# Web dependencies, build output and generated route types
+/web/node_modules/
+/web/.next/
+/web/next-env.d.ts
+*.tsbuildinfo
+
 # OS files
 .DS_Store
 Thumbs.db

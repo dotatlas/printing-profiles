@@ -13,6 +13,16 @@ go -C api run . serve      # then open http://localhost:8080/api/v1/printers
 go -C api test ./...       # needs the database; add -short to skip the integration tests
 ```
 
+## Run the site locally
+
+Needs Node.js 24 or newer.
+
+```bash
+npm --prefix web ci          # install the exact package versions
+npm --prefix web run dev     # then open http://localhost:3000
+npm --prefix web test        # component tests
+```
+
 ## License
 
 - **Code:** [GNU AGPL-3.0](LICENSE). If you run a modified copy as a public website, you must publish your changes.

@@ -6,7 +6,7 @@ An open-source website for sharing 3D printing slicer presets. A Go API, a Next.
 
 ```
 api/                 Go module: main.go, internal/<pkg>/ (one level), migrations/, queries/, openapi.yaml
-web/                 Next.js app (TypeScript)
+web/                 Next.js app (TypeScript): app/ (routes, layout, theme), components/
 infra/               OpenTofu (never state files or secrets)
 bruno/               API collection: one request per route, with assertions
 docker-compose.yml   local PostgreSQL
@@ -24,13 +24,11 @@ go -C api test -race ./...           # Go tests; integration tests need the data
 cd bruno && npx @usebruno/cli run --env local   # API checks against the running API
 docker build -t printing-profiles-api ./api       # container image (runs "serve" on port 8080)
 docker run --rm -v "$(pwd -W)/api:/src" -w /src sqlc/sqlc:1.31.1 generate   # regenerate api/internal/db from api/queries (Git Bash: prefix MSYS_NO_PATHCONV=1)
-```
-
-Planned, added as they land:
-
-```bash
-npm --prefix web run dev             # run the frontend
-npm --prefix web test                # frontend tests
+npm --prefix web ci                  # install the site's packages, exactly as locked
+npm --prefix web run dev             # run the site on http://localhost:3000
+npm --prefix web run lint
+npm --prefix web run typecheck
+npm --prefix web test                # Vitest + Testing Library
 ```
 
 ## Conventions
@@ -47,7 +45,8 @@ npm --prefix web test                # frontend tests
 - **TypeScript:**
   - `strict`, no `any`.
   - API types are generated from `api/openapi.yaml`, never written by hand.
-  - Server components for public data.
+  - Server components for public data. Client components only where interaction needs them.
+  - Colors only from the theme tokens in `web/app/globals.css` (`page`, `ink`, `muted`, `line`, `accent`), never raw values. Each token has a light and a dark value.
 - **Comments:**
   - Every function and method gets a one-line doc comment: what it does, and how it relates to other functions.
   - Comments inside functions are sparse, only where a line isn't obvious.
@@ -59,6 +58,7 @@ npm --prefix web test                # frontend tests
   - Every route has a Bruno request.
 - **Security:**
   - Never commit secrets (`.env` is ignored).
+  - npm installs only versions at least 7 days old, with exact pins (`web/.npmrc`).
   - Validate input at the API boundary.
   - Check authorization on every write.
   - Never store passwords (sign-in is OAuth only).
