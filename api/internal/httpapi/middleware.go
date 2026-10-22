@@ -10,7 +10,7 @@ import (
 	"time"
 )
 
-// maxBodyBytes is the largest request body that the API reads. Upload files go to S3, not through the API.
+// maxBodyBytes is the largest request body that the API reads.
 const maxBodyBytes = 1 << 20
 
 // ctxKey is the type of the context keys in this package, so they cannot clash with keys of other packages.

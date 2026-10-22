@@ -7,7 +7,6 @@ An open-source website for sharing 3D printing slicer presets. A Go API, a Next.
 ```
 api/                 Go module: main.go, internal/<pkg>/ (one level), migrations/, queries/, openapi.yaml
 web/                 Next.js app (TypeScript): app/ (routes, layout, theme), components/, lib/ (API reads, generated types)
-infra/               OpenTofu (never state files or secrets)
 bruno/               API collection: one request per route, with assertions
 brand/               logo.png: the master logo (2048 px, transparent); every logo file of the site is cut from it
 docker-compose.yml   local PostgreSQL

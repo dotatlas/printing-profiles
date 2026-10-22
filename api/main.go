@@ -22,7 +22,7 @@ import (
 
 // main runs the mode that the first argument names, and exits with 1 on an error or 2 on a bad mode.
 func main() {
-	// All logs are JSON lines on stdout, so CloudWatch and Docker can read them.
+	// All logs are JSON lines on stdout, so Docker can collect them.
 	log := slog.New(slog.NewJSONHandler(os.Stdout, nil))
 
 	mode := ""
@@ -65,7 +65,7 @@ func serve(log *slog.Logger) error {
 	if err != nil {
 		return err
 	}
-	// Ctrl+C and SIGTERM (from Docker or Lambda) cancel ctx, and Serve then stops.
+	// Ctrl+C and SIGTERM (from Docker) cancel ctx, and Serve then stops.
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
