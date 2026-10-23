@@ -26,8 +26,8 @@
   --color-accent-ink: light-dark(#1d4f7a, #b4d5f0);
   /* One step off the page, for panels. */
   --color-raised: light-dark(#f7f8fa, #131316);
-  /* Borders of controls, one step stronger than line. */
-  --color-control: light-dark(#c9cbd1, #3f3f46);
+  /* Borders of controls: at least 3:1 on the page and on raised panels, so a field shows where it is. */
+  --color-control: light-dark(#868b94, #66666f);
   /* Errors: the text color, and a pale tint for the box around an error. */
   --color-danger: light-dark(#b42318, #f2786d);
   --color-danger-tint: light-dark(#fdeceb, #2a1513);
