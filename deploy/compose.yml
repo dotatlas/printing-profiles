@@ -1,4 +1,4 @@
-# Production stack: the API, its database and the tunnel, on one Linux host with Docker.
+# Self-hosted stack: the API, its database and a Cloudflare Tunnel, on one Linux host with Docker.
 # No service publishes a port. The only way in is the Cloudflare Tunnel.
 #
 # Set up (as root):
@@ -6,7 +6,7 @@
 #      then: chown root:root /etc/printing-profiles/*.env && chmod 600 /etc/printing-profiles/*.env
 #   2. docker compose -f deploy/compose.yml up -d
 #   3. Install the systemd units in this folder (see update.sh and backup.sh).
-# The fallback site container starts only with: docker compose -f deploy/compose.yml --profile web up -d
+# The site container starts only with: docker compose -f deploy/compose.yml --profile web up -d
 name: printing-profiles
 
 x-hardened: &hardened
@@ -76,7 +76,7 @@ services:
     mem_limit: 256m
     depends_on: [api]
 
-  # The fallback for the site. It reads the API over the edge network, not through the internet.
+  # The site, for hosts that serve it here too. It reads the API over the edge network, not through the internet.
   web:
     <<: *hardened
     image: ghcr.io/dotatlas/printing-profiles/web:${TAG:-main}
