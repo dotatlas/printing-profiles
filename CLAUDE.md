@@ -8,7 +8,7 @@ An open-source website for sharing 3D printing slicer presets. A Go API, a Next.
 api/                 Go module: main.go, internal/<pkg>/ (one level), migrations/, queries/, openapi.yaml
 web/                 Next.js app (TypeScript): app/ (routes, layout, theme), components/, lib/ (API reads, generated types)
 bruno/               API collection: one request per route, with assertions
-deploy/              production: compose.yml (db, migrate, api, cloudflared; web as a fallback profile), env file examples, update and backup scripts with their systemd units
+deploy/              self-hosting: compose.yml (db, migrate, api, cloudflared; web as a profile), env file examples, update and backup scripts with their systemd units
 brand/               logo.png: the master logo (2048 px, transparent); every logo file of the site is cut from it
 docker-compose.yml   local PostgreSQL
 .env.example         every environment variable, with placeholders
@@ -20,6 +20,7 @@ docker-compose.yml   local PostgreSQL
 docker compose up -d                 # local PostgreSQL (port 5432)
 go -C api run . migrate              # apply the migrations in api/migrations
 go -C api run . serve                # run the API (dev defaults; see .env.example)
+go -C api run . start                # migrate, then serve, in one process (for hosts that run one process)
 go -C api vet ./...
 go -C api test -race ./...           # Go tests; integration tests need the database, -short skips them
 cd bruno && npx @usebruno/cli run --env local   # API checks against the running API

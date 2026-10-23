@@ -35,8 +35,13 @@ func main() {
 		err = serve(log)
 	case "migrate":
 		err = migrate(log)
+	case "start":
+		// For hosts that run one process and no one-off jobs. The migration lock keeps two starts apart.
+		if err = migrate(log); err == nil {
+			err = serve(log)
+		}
 	default:
-		fmt.Fprintln(os.Stderr, "usage: api serve | api migrate")
+		fmt.Fprintln(os.Stderr, "usage: api serve | api migrate | api start (migrate, then serve)")
 		os.Exit(2)
 	}
 	if err != nil {
