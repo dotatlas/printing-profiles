@@ -1,12 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { type FormEvent, type ReactNode, useEffect, useId, useState } from "react";
+import { type ChangeEvent, type FormEvent, type ReactNode, useEffect, useId, useState } from "react";
 import { ApiError, waitText } from "../lib/account";
-import { type License, licenseValues, nozzleValues, type Preset } from "../lib/api-types";
-import { createPreset, type FormField, fieldOfProblem, updatePreset } from "../lib/my-presets";
+import { type KeySetting, type License, licenseValues, nozzleValues, type Preset } from "../lib/api-types";
+import { createPreset, type FormField, fieldOfProblem, updatePreset, uploadPresetFile } from "../lib/my-presets";
 import { nozzleLabel } from "../lib/presets";
 import { Notice } from "./account-ui";
+import { fileLabel, KeySettings } from "./preset-facts";
 import { type Catalog, MaterialOptions, PrinterOptions } from "./preset-list";
 
 // licenseText names each license and says in one line what it lets other people do.
@@ -18,11 +19,20 @@ const licenseText: Record<License, { name: string; text: string }> = {
 };
 
 const maxDescription = 4000;
+const maxFile = 1 << 20; // the API's limit for a preset file
 
 type Values = Record<"title" | "printer" | "material" | "nozzle" | "slicer" | "slicerVersion" | "description", string> & {
   license: License;
 };
 type Errors = Partial<Record<FormField, string>>;
+
+// CheckedFile is what the form shows for a preset file: a new upload has an id; the edited preset's file has none.
+type CheckedFile = { id?: string; slicer: string; kind: string; slicer_version?: string; settings?: KeySetting[]; removed?: string[] };
+type FileState = { status: "none" } | { status: "checking" } | { status: "ready"; file: CheckedFile };
+
+// slicerOfFile gives the catalog slicer that a checked file fills in: only PrusaSlicer and SuperSlicer files say
+// which slicer they are; the OrcaSlicer format is shared with Bambu Studio and Creality Print.
+const slicerOfFile: Record<string, string> = { prusaslicer: "prusaslicer", superslicer: "superslicer" };
 
 // valuesOf gives the start values of the form: the preset's own values, or empty choices with the usual nozzle.
 function valuesOf(preset?: Preset): Values {
@@ -138,6 +148,7 @@ export function PresetForm({
   const [errors, setErrors] = useState<Errors>({});
   const [problem, setProblem] = useState("");
   const [saving, setSaving] = useState<"draft" | "published" | null>(null);
+  const [file, setFile] = useState<FileState>(() => (preset?.file ? { status: "ready", file: preset.file } : { status: "none" }));
   const draft = !preset || preset.status === "draft";
 
   useEffect(() => {
@@ -152,6 +163,31 @@ export function PresetForm({
     setErrors(next);
     const first = (Object.keys(next) as FormField[])[0];
     if (first) document.getElementById(idOf(base, first))?.focus();
+  }
+
+  // onFile sends the chosen file to storage, has the API check it, and shows what the check found. A PrusaSlicer or
+  // SuperSlicer file fills in an empty slicer.
+  async function onFile(e: ChangeEvent<HTMLInputElement>) {
+    const chosen = e.target.files?.[0];
+    if (!chosen) return;
+    setErrors((old) => ({ ...old, file: undefined }));
+    if (chosen.size === 0 || chosen.size > maxFile) {
+      setFile({ status: "none" });
+      const reason = chosen.size === 0 ? "The file is empty." : "The file is larger than 1 MB, so it is not a preset file.";
+      setErrors((old) => ({ ...old, file: reason }));
+      return;
+    }
+    setFile({ status: "checking" });
+    try {
+      const checked = await uploadPresetFile(chosen);
+      setFile({ status: "ready", file: { ...checked, slicer: checked.slicer ?? "", kind: checked.kind ?? "" } });
+      const slug = slicerOfFile[checked.slicer ?? ""];
+      if (slug && catalog.slicers.some((s) => s.slug === slug)) setValues((v) => (v.slicer ? v : { ...v, slicer: slug }));
+    } catch (err) {
+      setFile({ status: "none" });
+      const reason = err instanceof ApiError && err.detail ? err.detail : "The file was not checked. Try again.";
+      setErrors((old) => ({ ...old, file: reason.charAt(0).toUpperCase() + reason.slice(1) }));
+    }
   }
 
   async function onSubmit(e: FormEvent<HTMLFormElement>) {
@@ -174,6 +210,8 @@ export function PresetForm({
       slicer_version: values.slicerVersion.trim(),
       license: values.license,
       status,
+      // Only a new upload goes with the preset; the edited preset keeps its file otherwise.
+      ...(file.status === "ready" && file.file.id ? { file: file.file.id } : {}),
     };
     try {
       const saved = preset ? await updatePreset(preset.id, input) : await createPreset(input);
@@ -207,6 +245,46 @@ export function PresetForm({
           </button>
         </Notice>
       )}
+      <Field
+        id={idOf(base, "file")}
+        label="Preset file (optional)"
+        // Once a file is checked, its panel says what it is, so the hint goes away.
+        hint={file.status === "ready" ? undefined : "PrusaSlicer or SuperSlicer .ini, OrcaSlicer or Bambu Studio .json, up to 1 MB. You can add it later."}
+        error={errors.file}
+      >
+        {(describedBy) => (
+          <>
+            <input
+              id={idOf(base, "file")}
+              type="file"
+              accept=".ini,.json"
+              className="file-input"
+              onChange={onFile}
+              disabled={file.status === "checking"}
+              aria-invalid={invalid("file")}
+              aria-describedby={describedBy}
+            />
+            {file.status === "checking" && (
+              <p role="status" className="text-sm text-muted">
+                Checking the file…
+              </p>
+            )}
+            {file.status === "ready" && (
+              <div className="panel mt-1 flex flex-col gap-3">
+                <p className="text-sm font-medium">{fileLabel(file.file)}</p>
+                {file.file.settings && <KeySettings settings={file.file.settings} />}
+                {file.file.removed && file.file.removed.length > 0 && (
+                  <Notice>
+                    The file held your printer&apos;s network settings, so they were removed before it was stored:{" "}
+                    {file.file.removed.join(", ")}.
+                  </Notice>
+                )}
+              </div>
+            )}
+          </>
+        )}
+      </Field>
+
       <fieldset className="grid gap-4 sm:grid-cols-2">
         <legend className="mb-3 font-semibold">Your setup</legend>
         <Field id={idOf(base, "printer")} label="Printer" error={errors.printer}>
@@ -326,15 +404,15 @@ export function PresetForm({
         <div className="flex flex-wrap gap-3">
           {draft ? (
             <>
-              <button type="submit" value="published" className="btn btn-primary" disabled={saving !== null}>
+              <button type="submit" value="published" className="btn btn-primary" disabled={saving !== null || file.status === "checking"}>
                 {saving === "published" ? "Publishing…" : "Publish"}
               </button>
-              <button type="submit" value="draft" className="btn btn-secondary" disabled={saving !== null}>
+              <button type="submit" value="draft" className="btn btn-secondary" disabled={saving !== null || file.status === "checking"}>
                 {saving === "draft" ? "Saving…" : "Save as draft"}
               </button>
             </>
           ) : (
-            <button type="submit" value="published" className="btn btn-primary" disabled={saving !== null}>
+            <button type="submit" value="published" className="btn btn-primary" disabled={saving !== null || file.status === "checking"}>
               {saving ? "Saving…" : "Save changes"}
             </button>
           )}

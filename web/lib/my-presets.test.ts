@@ -1,6 +1,6 @@
 import { afterEach, expect, test, vi } from "vitest";
 import { ApiError } from "./account";
-import { createPreset, deletePreset, fieldOfProblem, updatePreset } from "./my-presets";
+import { createPreset, deletePreset, fieldOfProblem, updatePreset, uploadPresetFile } from "./my-presets";
 
 afterEach(() => vi.unstubAllGlobals());
 
@@ -22,6 +22,7 @@ test("fieldOfProblem finds the form field that an API message is about", () => {
   expect(fieldOfProblem("slicer_version must have at most 20 characters")).toBe("slicer_version");
   // "slicer_version" starts with "slicer", so the longer name must win.
   expect(fieldOfProblem("slicer is not in the catalog")).toBe("slicer");
+  expect(fieldOfProblem("file is not one of your checked uploads")).toBe("file");
   expect(fieldOfProblem("choose a handle first")).toBeNull();
   expect(fieldOfProblem("")).toBeNull();
 });
@@ -52,4 +53,33 @@ test("deletePreset refuses an ID that is not a public ID, before it calls the AP
   expect(calls).toHaveLength(0);
   await deletePreset("ab3defgh");
   expect(calls[0].init.method).toBe("DELETE");
+});
+
+test("uploadPresetFile asks for a ticket, sends the file to its URL, then completes the upload", async () => {
+  const calls: { url: string; init: RequestInit }[] = [];
+  vi.stubGlobal("fetch", async (url: string, init: RequestInit) => {
+    calls.push({ url, init });
+    if (url.endsWith("/api/v1/uploads")) {
+      return new Response(JSON.stringify({ id: "abcdefghjkmnpqrs", url: "https://bucket.test/u/x?sig=1", method: "PUT", headers: { "Content-Type": "application/octet-stream" } }), { status: 201 });
+    }
+    if (url.startsWith("https://bucket.test/")) return new Response(null, { status: 200 });
+    return new Response(JSON.stringify({ id: "abcdefghjkmnpqrs", status: "ready", slicer: "prusaslicer" }), { status: 200 });
+  });
+  const file = new File(["layer_height = 0.2\n"], "my.ini");
+
+  expect(await uploadPresetFile(file)).toMatchObject({ status: "ready", slicer: "prusaslicer" });
+  expect(JSON.parse(String(calls[0].init.body))).toEqual({ kind: "preset_file", size: file.size });
+  // The file goes to the bucket without the session cookie, with only the signed headers.
+  expect(calls[1]).toMatchObject({ url: "https://bucket.test/u/x?sig=1", init: { method: "PUT", body: file, headers: { "Content-Type": "application/octet-stream" } } });
+  expect(calls[1].init.credentials).toBeUndefined();
+  expect(calls[2].url).toMatch(/\/api\/v1\/uploads\/abcdefghjkmnpqrs\/complete$/);
+});
+
+test("uploadPresetFile says plainly when the bucket refuses the file", async () => {
+  vi.stubGlobal("fetch", async (url: string) =>
+    url.endsWith("/api/v1/uploads")
+      ? new Response(JSON.stringify({ id: "abcdefghjkmnpqrs", url: "https://bucket.test/u/x", method: "PUT", headers: {} }), { status: 201 })
+      : new Response("denied", { status: 403 }),
+  );
+  await expect(uploadPresetFile(new File(["x"], "x.ini"))).rejects.toMatchObject({ detail: "The file did not upload. Try again." });
 });

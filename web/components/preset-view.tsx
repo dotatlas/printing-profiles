@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 import type { Preset } from "../lib/api-types";
 import { formatDate } from "../lib/format";
 import { authorName } from "../lib/presets";
-import { PresetDetails, PresetFacts } from "./preset-facts";
+import { fileLabel, KeySettings, PresetDetails, PresetFacts } from "./preset-facts";
 
 // PresetView shows one preset: the title, the author, the facts as tags, the description and the details. The
 // preset page renders it on the server; the draft view renders it in the browser. actions holds the author's
@@ -26,19 +26,41 @@ export function PresetView({ preset, actions, notice }: { preset: Preset; action
         <PresetFacts preset={preset} />
       </div>
       <div className="mt-10 grid gap-8 md:grid-cols-[minmax(0,1fr)_16rem]">
-        <section aria-labelledby="about">
-          <h2 id="about" className="font-semibold">
-            About this preset
-          </h2>
-          {preset.description ? (
-            // Plain text: React escapes it, and pre-line keeps the author's line breaks.
-            <p className="mt-2 max-w-prose whitespace-pre-line wrap-anywhere">{preset.description}</p>
-          ) : (
-            <p className="mt-2 text-muted">The author did not write a description.</p>
+        <div className="flex min-w-0 flex-col gap-10">
+          {preset.file && (
+            <section aria-labelledby="key-settings">
+              <h2 id="key-settings" className="font-semibold">
+                Key settings
+              </h2>
+              <p className="mt-1 text-sm text-muted">Read from the preset file. The file holds every other setting too.</p>
+              <div className="mt-3">
+                <KeySettings settings={preset.file.settings} />
+              </div>
+            </section>
           )}
-        </section>
-        {/* The panel stays in view beside a long description. */}
-        <aside aria-label="Details" className="panel self-start md:sticky md:top-6">
+          <section aria-labelledby="about">
+            <h2 id="about" className="font-semibold">
+              About this preset
+            </h2>
+            {preset.description ? (
+              // Plain text: React escapes it, and pre-line keeps the author's line breaks.
+              <p className="mt-2 max-w-prose whitespace-pre-line wrap-anywhere">{preset.description}</p>
+            ) : (
+              <p className="mt-2 text-muted">The author did not write a description.</p>
+            )}
+          </section>
+        </div>
+        {/* The panel stays in view beside a long description. On a phone it comes first, so Download is near the top. */}
+        <aside aria-label="Details" className="panel flex flex-col gap-4 self-start max-md:order-first md:sticky md:top-6">
+          {preset.file && (
+            <div className="flex flex-col gap-2">
+              {/* A draft is not public, so its author gets the file itself, and nothing is counted. */}
+              <a href={preset.status === "published" ? preset.file.download_url : preset.file.file_url} className="btn btn-primary w-full">
+                Download preset
+              </a>
+              <p className="text-sm text-muted">{fileLabel(preset.file)}</p>
+            </div>
+          )}
           <PresetDetails preset={preset} />
         </aside>
       </div>

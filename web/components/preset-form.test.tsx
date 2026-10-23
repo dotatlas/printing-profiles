@@ -8,7 +8,10 @@ const printers: Printer[] = [{ slug: "bambu-lab-p1s", model: "P1S", brand: bambu
 const materials: Material[] = [
   { slug: "bambu-lab-pla-basic", product_name: "PLA Basic", type: "PLA", diameter_mm: 1.75, brand: bambu, colors: [] },
 ];
-const slicers: Slicer[] = [{ slug: "orcaslicer", name: "OrcaSlicer" }];
+const slicers: Slicer[] = [
+  { slug: "orcaslicer", name: "OrcaSlicer" },
+  { slug: "prusaslicer", name: "PrusaSlicer" },
+];
 const catalog = { printers, materials, slicers };
 
 const preset: Preset = {
@@ -164,4 +167,73 @@ test("the edit form links back to the preset", () => {
   render(<PresetForm catalog={catalog} preset={preset} cancelHref="/presets/fast-pla-ab3defgh" onSaved={() => {}} />);
 
   expect(screen.getByRole("link", { name: "Cancel" })).toHaveProperty("href", expect.stringMatching(/\/presets\/fast-pla-ab3defgh$/));
+});
+
+// stubUploadAPI answers the upload steps with a checked PrusaSlicer filament file (or a refusal), and keeps the
+// preset bodies that the form sends.
+function stubUploadAPI(complete: { status: number; body: unknown }) {
+  const presets: unknown[] = [];
+  vi.stubGlobal("fetch", async (url: string, init: RequestInit) => {
+    const json = (status: number, body: unknown) => new Response(JSON.stringify(body), { status });
+    if (url.endsWith("/api/v1/uploads")) {
+      return json(201, { id: "abcdefghjkmnpqrs", url: "https://bucket.test/u/x", method: "PUT", headers: { "Content-Type": "application/octet-stream" } });
+    }
+    if (url.startsWith("https://bucket.test/")) return new Response(null, { status: 200 });
+    if (url.endsWith("/complete")) return json(complete.status, complete.body);
+    presets.push(JSON.parse(String(init.body)));
+    return json(201, preset);
+  });
+  return presets;
+}
+
+const checked = {
+  id: "abcdefghjkmnpqrs",
+  status: "ready",
+  slicer: "prusaslicer",
+  kind: "filament",
+  slicer_version: "2.9.6",
+  settings: [{ id: "nozzle_temperature", label: "Nozzle temperature", value: "210", unit: "°C" }],
+  removed: ["printhost_password"],
+};
+
+test("a chosen file is checked and read back, fills in the slicer, and goes with the preset", async () => {
+  const presets = stubUploadAPI({ status: 200, body: checked });
+  render(<PresetForm catalog={catalog} onSaved={() => {}} />);
+
+  fireEvent.change(screen.getByLabelText("Preset file (optional)"), { target: { files: [new File(["x"], "my.ini")] } });
+
+  expect(await screen.findByText("Nozzle temperature")).toBeDefined();
+  expect(screen.getByText("210 °C")).toBeDefined();
+  expect(screen.getByText(/PrusaSlicer filament settings, version 2\.9\.6/)).toBeDefined();
+  expect(screen.getByText(/printhost_password/)).toBeDefined();
+  expect((screen.getByLabelText("Slicer") as HTMLSelectElement).value).toBe("prusaslicer");
+
+  fillNew();
+  fireEvent.change(screen.getByLabelText("Slicer"), { target: { value: "prusaslicer" } });
+  fireEvent.click(screen.getByRole("button", { name: "Publish" }));
+  await waitFor(() => expect(presets).toHaveLength(1));
+  expect(presets[0]).toMatchObject({ file: "abcdefghjkmnpqrs", slicer: "prusaslicer" });
+});
+
+test("a refused file shows the reason under the file field", async () => {
+  stubUploadAPI({ status: 422, body: { detail: "the file is not a preset from PrusaSlicer, SuperSlicer, OrcaSlicer or Bambu Studio" } });
+  render(<PresetForm catalog={catalog} onSaved={() => {}} />);
+  const input = screen.getByLabelText("Preset file (optional)");
+
+  fireEvent.change(input, { target: { files: [new File(["<html>"], "page.html")] } });
+
+  expect(await screen.findByText(/^The file is not a preset from PrusaSlicer/)).toBeDefined();
+  expect(input.getAttribute("aria-invalid")).toBe("true");
+});
+
+test("an empty or too large file gets a plain reason without a call to the API", () => {
+  const sent = stubAPI(201, preset);
+  render(<PresetForm catalog={catalog} onSaved={() => {}} />);
+  const input = screen.getByLabelText("Preset file (optional)");
+
+  fireEvent.change(input, { target: { files: [new File([], "empty.ini")] } });
+  expect(screen.getByText("The file is empty.")).toBeDefined();
+  fireEvent.change(input, { target: { files: [new File([new Uint8Array((1 << 20) + 1)], "big.3mf")] } });
+  expect(screen.getByText("The file is larger than 1 MB, so it is not a preset file.")).toBeDefined();
+  expect(sent).toHaveLength(0);
 });

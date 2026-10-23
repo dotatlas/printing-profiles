@@ -1,9 +1,9 @@
-import { call } from "./account";
-import type { Preset, PresetCreate, PresetUpdate } from "./api-types";
+import { ApiError, call } from "./account";
+import type { Preset, PresetCreate, PresetUpdate, Upload, UploadTicket } from "./api-types";
 
 // formFields are the fields of PresetCreate that an API message can name. The longest name comes first, so
 // "slicer_version" wins over "slicer".
-const formFields = ["slicer_version", "description", "nozzle_mm", "material", "printer", "license", "slicer", "title"] as const;
+const formFields = ["slicer_version", "description", "nozzle_mm", "material", "printer", "license", "slicer", "title", "file"] as const;
 
 export type FormField = (typeof formFields)[number];
 
@@ -41,4 +41,19 @@ export function updatePreset(id: string, input: PresetUpdate) {
 
 export async function deletePreset(id: string) {
   await call<void>(`/api/v1/presets/${checkID(id)}`, "DELETE");
+}
+
+// uploadPresetFile sends a preset file in three steps: a ticket from the API, the file straight to the bucket URL of
+// the ticket, then "complete", which checks it. The preset form calls it and shows what the check found.
+export async function uploadPresetFile(file: File): Promise<Upload> {
+  const ticket = await call<UploadTicket>("/api/v1/uploads", "POST", { kind: "preset_file", size: file.size });
+  let sent: Response;
+  try {
+    // No credentials: the bucket must never get the session cookie, and the signed URL is the permission.
+    sent = await fetch(ticket.url, { method: ticket.method, headers: ticket.headers, body: file });
+  } catch {
+    throw new ApiError(0, "The file did not upload. Check your connection and try again.", null);
+  }
+  if (!sent.ok) throw new ApiError(sent.status, "The file did not upload. Try again.", null);
+  return call<Upload>(`/api/v1/uploads/${ticket.id}/complete`, "POST");
 }

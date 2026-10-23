@@ -153,6 +153,31 @@
   .fact-tag:hover {
     background-color: color-mix(in oklab, var(--color-accent-tint), var(--color-accent) 14%);
   }
+  /* The native file picker, kept for its keyboard and screen reader support, with its button in the secondary style. */
+  .file-input {
+    max-width: 100%;
+    font-size: 0.875rem;
+    color: var(--color-muted);
+  }
+  .file-input::file-selector-button {
+    margin-right: 0.75rem;
+    height: 2.5rem;
+    border-radius: 0.625rem;
+    border: 1px solid var(--color-control);
+    background-color: var(--color-page);
+    padding-inline: 1rem;
+    font: inherit;
+    font-weight: 500;
+    color: var(--color-ink);
+    cursor: pointer;
+    transition: background-color 150ms ease;
+  }
+  .file-input:hover:not(:disabled)::file-selector-button {
+    background-color: var(--color-raised);
+  }
+  .file-input[aria-invalid="true"]::file-selector-button {
+    border-color: var(--color-danger);
+  }
   /* One license as a choice card: the radio, the name and one line on what it allows. */
   .license-choice {
     display: flex;

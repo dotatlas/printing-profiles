@@ -1,5 +1,5 @@
 import Link from "next/link";
-import type { License, Preset } from "../lib/api-types";
+import type { KeySetting, License, Preset } from "../lib/api-types";
 import { formatDate } from "../lib/format";
 import { browsePath, materialLabel, nozzleLabel, printerLabel } from "../lib/presets";
 
@@ -49,7 +49,7 @@ export function PresetFacts({ preset }: { preset: Preset }) {
   );
 }
 
-// PresetDetails lists the license, the edit date and the file of a preset. PresetView shows it beside the
+// PresetDetails lists the license, the edit date, and the download count or the missing file of a preset. PresetView shows it beside the
 // description; the byline and the tags already give the author, the date and the slicer.
 export function PresetDetails({ preset }: { preset: Preset }) {
   const license = licenses[preset.license];
@@ -69,8 +69,44 @@ export function PresetDetails({ preset }: { preset: Preset }) {
           <dd>{formatDate(preset.updated_at)}</dd>
         </>
       )}
-      <dt className="text-muted">File</dt>
-      <dd className="text-muted">None attached yet</dd>
+      {preset.file ? (
+        <>
+          <dt className="text-muted">Downloads</dt>
+          <dd className="tabular-nums">{preset.download_count}</dd>
+        </>
+      ) : (
+        <>
+          <dt className="text-muted">File</dt>
+          <dd className="text-muted">None attached yet</dd>
+        </>
+      )}
+    </dl>
+  );
+}
+
+const slicerNames: Record<string, string> = { prusaslicer: "PrusaSlicer", superslicer: "SuperSlicer", orcaslicer: "OrcaSlicer" };
+const kindNames: Record<string, string> = { print: "print", filament: "filament", printer: "printer", config: "full" };
+
+// fileLabel names a checked preset file, such as "PrusaSlicer filament settings, version 2.9.6". The form and the
+// preset page use it.
+export function fileLabel(file: { slicer: string; kind: string; slicer_version?: string }): string {
+  const name = `${slicerNames[file.slicer] ?? file.slicer} ${kindNames[file.kind] ?? file.kind} settings`;
+  return file.slicer_version ? `${name}, version ${file.slicer_version}` : name;
+}
+
+// KeySettings shows the key settings that the check read from a preset file, as a two-column table. The preset
+// page shows it for visitors, and the form shows it right after a file is checked.
+export function KeySettings({ settings }: { settings: KeySetting[] }) {
+  if (settings.length === 0) return <p className="text-sm text-muted">The file holds none of the settings in this table.</p>;
+  return (
+    <dl className="grid grid-cols-[minmax(0,1fr)_auto] text-sm sm:grid-cols-[minmax(0,14rem)_minmax(0,1fr)]">
+      {settings.map((s) => (
+        <div key={s.id} className="contents">
+          {/* Padding, not a column gap, so each row's rule runs unbroken across both columns. */}
+          <dt className="border-b border-line py-1.5 pr-6 text-muted">{s.label}</dt>
+          <dd className="border-b border-line py-1.5 tabular-nums wrap-anywhere">{s.unit ? `${s.value} ${s.unit}` : s.value}</dd>
+        </div>
+      ))}
     </dl>
   );
 }

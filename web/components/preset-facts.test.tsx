@@ -2,6 +2,7 @@ import { render, screen } from "@testing-library/react";
 import { expect, test } from "vitest";
 import type { Preset, Printer, Slicer } from "../lib/api-types";
 import { PresetDetails, PresetFacts } from "./preset-facts";
+import { PresetView } from "./preset-view";
 
 const bambu = { slug: "bambu-lab", name: "Bambu Lab" };
 const printers: Printer[] = [
@@ -56,4 +57,33 @@ test("the details name the license with a link to its text and show the edit dat
     "https://creativecommons.org/licenses/by-sa/4.0/",
   );
   expect(screen.getByText("22 Oct 2026")).toBeDefined();
+});
+
+test("with a file, the preset page shows its key settings and a download that the API counts", () => {
+  const file = {
+    slicer: "prusaslicer" as const,
+    kind: "filament" as const,
+    slicer_version: "2.9.6",
+    settings: [{ id: "nozzle_temperature", label: "Nozzle temperature", value: "210", unit: "°C" }],
+    download_url: "https://api.test/api/v1/presets/ab3defgh/download",
+    file_url: "https://files.test/presets/abc.ini",
+  };
+  const { unmount } = render(<PresetView preset={{ ...preset, file, download_count: 12 }} />);
+
+  expect(screen.getByRole("heading", { name: "Key settings" })).toBeDefined();
+  expect(screen.getByText("210 °C")).toBeDefined();
+  expect(screen.getByRole("link", { name: "Download preset" })).toHaveProperty("href", file.download_url);
+  expect(screen.getByText("PrusaSlicer filament settings, version 2.9.6")).toBeDefined();
+  expect(screen.getByText("12")).toBeDefined();
+  unmount();
+
+  // A draft is not public, so its author downloads the file itself and nothing is counted.
+  render(<PresetView preset={{ ...preset, status: "draft", file, download_count: 0 }} />);
+  expect(screen.getByRole("link", { name: "Download preset" })).toHaveProperty("href", file.file_url);
+});
+
+test("without a file, the preset page says so and offers no download", () => {
+  render(<PresetView preset={preset} />);
+  expect(screen.queryByRole("link", { name: "Download preset" })).toBeNull();
+  expect(screen.getByText("None attached yet")).toBeDefined();
 });
