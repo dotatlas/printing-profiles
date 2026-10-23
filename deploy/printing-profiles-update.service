@@ -1,0 +1,13 @@
+# Install: copy the four printing-profiles-* units to /etc/systemd/system, then:
+#   systemctl daemon-reload && systemctl enable --now printing-profiles-update.timer printing-profiles-backup.timer
+# The units expect the repo at /opt/printing-profiles.
+[Unit]
+Description=Pull new Printing Profiles images and restart what changed
+Requires=docker.service
+After=docker.service network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+EnvironmentFile=-/etc/printing-profiles/backup.env
+ExecStart=/opt/printing-profiles/deploy/update.sh

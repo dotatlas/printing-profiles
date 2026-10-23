@@ -1,0 +1,9 @@
+[Unit]
+Description=Back up the Printing Profiles database
+Requires=docker.service
+After=docker.service
+
+[Service]
+Type=oneshot
+EnvironmentFile=-/etc/printing-profiles/backup.env
+ExecStart=/opt/printing-profiles/deploy/backup.sh

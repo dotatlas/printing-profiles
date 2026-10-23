@@ -1,0 +1,10 @@
+[Unit]
+Description=Back up the Printing Profiles database every night
+
+[Timer]
+OnCalendar=*-*-* 03:30
+RandomizedDelaySec=15min
+Persistent=true
+
+[Install]
+WantedBy=timers.target

@@ -1,0 +1,100 @@
+# Production stack: the API, its database and the tunnel, on one Linux host with Docker.
+# No service publishes a port. The only way in is the Cloudflare Tunnel.
+#
+# Set up (as root):
+#   1. Copy each *.env.example in this folder to /etc/printing-profiles/<name>.env (or set CONFIG_DIR), fill in the values,
+#      then: chown root:root /etc/printing-profiles/*.env && chmod 600 /etc/printing-profiles/*.env
+#   2. docker compose -f deploy/compose.yml up -d
+#   3. Install the systemd units in this folder (see update.sh and backup.sh).
+# The fallback site container starts only with: docker compose -f deploy/compose.yml --profile web up -d
+name: printing-profiles
+
+x-hardened: &hardened
+  read_only: true
+  cap_drop: [ALL]
+  security_opt: [no-new-privileges:true]
+  restart: unless-stopped
+  logging:
+    driver: json-file
+    options:
+      max-size: 10m
+      max-file: "5"
+
+services:
+  db:
+    <<: *hardened
+    image: postgres:17
+    # The image's postgres user (uid 999). With this user, the entrypoint needs no root capabilities.
+    user: "999:999"
+    env_file: ${CONFIG_DIR:-/etc/printing-profiles}/db.env
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    tmpfs:
+      - /var/run/postgresql
+      - /tmp
+    shm_size: 128mb
+    networks: [data]
+    mem_limit: 1g
+    cpus: 1.0
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \"$$POSTGRES_USER\" -d \"$$POSTGRES_DB\""]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  # Applies new migrations, then exits. The API starts only when it succeeds.
+  migrate:
+    <<: *hardened
+    image: ghcr.io/dotatlas/printing-profiles/api:${TAG:-main}
+    command: migrate
+    restart: "no"
+    env_file: ${CONFIG_DIR:-/etc/printing-profiles}/api.env
+    networks: [data]
+    mem_limit: 256m
+    depends_on:
+      db:
+        condition: service_healthy
+
+  api:
+    <<: *hardened
+    image: ghcr.io/dotatlas/printing-profiles/api:${TAG:-main}
+    command: serve
+    env_file: ${CONFIG_DIR:-/etc/printing-profiles}/api.env
+    networks: [edge, data]
+    mem_limit: 512m
+    cpus: 1.0
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+
+  cloudflared:
+    <<: *hardened
+    image: cloudflare/cloudflared:2026.10.1
+    command: tunnel --no-autoupdate run
+    env_file: ${CONFIG_DIR:-/etc/printing-profiles}/tunnel.env
+    networks: [edge]
+    mem_limit: 256m
+    depends_on: [api]
+
+  # The fallback for the site. It reads the API over the edge network, not through the internet.
+  web:
+    <<: *hardened
+    image: ghcr.io/dotatlas/printing-profiles/web:${TAG:-main}
+    profiles: [web]
+    environment:
+      API_URL: http://api:8080
+    tmpfs:
+      - /tmp
+    networks: [edge]
+    mem_limit: 512m
+    cpus: 1.0
+    depends_on: [api]
+
+networks:
+  edge: {}
+  # No internet access: only the API and the migrations reach the database.
+  data:
+    internal: true
+
+volumes:
+  db-data:

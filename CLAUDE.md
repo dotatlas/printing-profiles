@@ -8,6 +8,7 @@ An open-source website for sharing 3D printing slicer presets. A Go API, a Next.
 api/                 Go module: main.go, internal/<pkg>/ (one level), migrations/, queries/, openapi.yaml
 web/                 Next.js app (TypeScript): app/ (routes, layout, theme), components/, lib/ (API reads, generated types)
 bruno/               API collection: one request per route, with assertions
+deploy/              production: compose.yml (db, migrate, api, cloudflared; web as a fallback profile), env file examples, update and backup scripts with their systemd units
 brand/               logo.png: the master logo (2048 px, transparent); every logo file of the site is cut from it
 docker-compose.yml   local PostgreSQL
 .env.example         every environment variable, with placeholders
@@ -31,6 +32,7 @@ npm --prefix web run typecheck
 npm --prefix web test                # Vitest + Testing Library
 npm --prefix web run gen:api         # regenerate web/lib/api-types.ts after api/openapi.yaml changes
 docker build -t printing-profiles-web ./web       # site image (port 3000; set API_URL; runs with --read-only)
+docker compose -f deploy/compose.yml config --quiet   # check the production stack (env files in CONFIG_DIR, default /etc/printing-profiles)
 ```
 
 ## Conventions
@@ -67,6 +69,11 @@ docker build -t printing-profiles-web ./web       # site image (port 3000; set A
   - Never store passwords (sign-in is GitHub or Discord OAuth, or a one-time email link).
   - Never log tokens, session IDs or personal data.
   - Validate uploads by their content, never their file name.
+- **Deploy** (`deploy/`):
+  - No service publishes a port; the tunnel is the only way in. The `data` network is internal, so the database has no internet.
+  - Every service is read-only, drops all capabilities, has `no-new-privileges`, a memory limit and rotated logs.
+  - Secrets live only in the env files on the host (root only, mode 600), never in the repo. The `*.env.example` files hold placeholders.
+  - Scripts are POSIX `sh` and pass shellcheck.
 - **Commits:**
   - Conventional Commits (`feat: ...`, `fix: ...`), lowercase, no emojis, no trailing period.
   - One logical change per commit: the code together with its tests, API contract, Bruno requests and docs. Aim for about 100-400 changed lines; split bigger changes by logical part.
