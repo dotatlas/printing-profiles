@@ -1,0 +1,25 @@
+meta {
+  name: edit the preset
+  type: http
+  seq: 19
+}
+
+patch {
+  url: {{baseUrl}}/api/v1/presets/{{presetId}}
+  body: json
+  auth: none
+}
+
+headers {
+  Cookie: __Host-session={{session}}
+  Origin: {{siteOrigin}}
+}
+
+body:json {
+  {"title": "PLA Basic, fast profile for the P1S", "description": "0.2 mm layers.\nTested on a textured plate."}
+}
+
+assert {
+  res.status: eq 200
+  res.body.slug: eq pla-basic-fast-profile-for-the-p1s
+}

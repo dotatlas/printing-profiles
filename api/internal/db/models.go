@@ -58,6 +58,56 @@ type OauthFlow struct {
 	ExpiresAt  time.Time
 }
 
+type Preset struct {
+	ID            int64
+	PublicID      string
+	AuthorID      int64
+	Title         string
+	Slug          string
+	Description   string
+	PrinterID     int64
+	MaterialID    int64
+	NozzleMm      pgtype.Numeric
+	SlicerID      int64
+	SlicerVersion string
+	License       string
+	Status        string
+	CreatedAt     time.Time
+	UpdatedAt     time.Time
+	PublishedAt   pgtype.Timestamptz
+	DeletedAt     pgtype.Timestamptz
+}
+
+type PresetView struct {
+	ID                  int64
+	PublicID            string
+	AuthorID            int64
+	AuthorHandle        string
+	AuthorDisplayName   string
+	Title               string
+	Slug                string
+	Description         string
+	PrinterSlug         string
+	PrinterModel        string
+	PrinterBrandSlug    string
+	PrinterBrandName    string
+	MaterialSlug        string
+	MaterialProductName string
+	MaterialType        string
+	MaterialBrandSlug   string
+	MaterialBrandName   string
+	NozzleMm            float64
+	SlicerSlug          string
+	SlicerName          string
+	SlicerVersion       string
+	License             string
+	Status              string
+	CreatedAt           time.Time
+	UpdatedAt           time.Time
+	PublishedAt         pgtype.Timestamptz
+	DeletedAt           pgtype.Timestamptz
+}
+
 type Printer struct {
 	ID      int64
 	BrandID int64

@@ -290,6 +290,162 @@ paths:
           $ref: "#/components/responses/Problem"
         default:
           $ref: "#/components/responses/Problem"
+  /api/v1/presets:
+    get:
+      operationId: listPresets
+      summary: Browse published presets, newest first
+      security: [] # Public: no sign-in needed.
+      parameters:
+        - { name: printer, in: query, description: A printer slug., schema: { type: string, maxLength: 100 } }
+        - { name: material, in: query, description: A filament slug., schema: { type: string, maxLength: 100 } }
+        - { name: type, in: query, description: A filament type such as PLA., schema: { $ref: "#/components/schemas/MaterialType" } }
+        - { name: brand, in: query, description: A filament brand slug., schema: { type: string, maxLength: 100 } }
+        - { name: nozzle, in: query, schema: { $ref: "#/components/schemas/Nozzle" } }
+        - { name: slicer, in: query, description: A slicer slug., schema: { type: string, maxLength: 100 } }
+        - $ref: "#/components/parameters/Cursor"
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 50
+            default: 20
+      responses:
+        "200":
+          description: One page of presets, without descriptions.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PresetPage"
+        "400":
+          $ref: "#/components/responses/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
+    post:
+      operationId: createPreset
+      summary: Make a preset (signed in, with a handle)
+      security: [{session: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PresetCreate"
+      responses:
+        "201":
+          description: The new preset.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Preset"
+        "400":
+          $ref: "#/components/responses/Problem"
+        "401":
+          $ref: "#/components/responses/Problem"
+        "403":
+          $ref: "#/components/responses/Problem"
+        "415":
+          $ref: "#/components/responses/Problem"
+        "429":
+          $ref: "#/components/responses/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
+  /api/v1/presets/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        description: The preset's public ID.
+        schema:
+          type: string
+          pattern: "^[a-z2-9]{8}$"
+    get:
+      operationId: getPreset
+      summary: One preset (a draft only for its author)
+      security: [{session: []}, {}]
+      responses:
+        "200":
+          description: The preset, with its description.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Preset"
+        "404":
+          $ref: "#/components/responses/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
+    patch:
+      operationId: updatePreset
+      summary: Change the author's own preset
+      security: [{session: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PresetUpdate"
+      responses:
+        "200":
+          description: The changed preset.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Preset"
+        "400":
+          $ref: "#/components/responses/Problem"
+        "401":
+          $ref: "#/components/responses/Problem"
+        "403":
+          $ref: "#/components/responses/Problem"
+        "415":
+          $ref: "#/components/responses/Problem"
+        "404":
+          description: No such preset, or not the author's.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
+    delete:
+      operationId: deletePreset
+      summary: Delete the author's own preset (soft)
+      security: [{session: []}]
+      responses:
+        "204":
+          description: Deleted. Nobody can read it any more.
+        "401":
+          $ref: "#/components/responses/Problem"
+        "403":
+          $ref: "#/components/responses/Problem"
+        "415":
+          $ref: "#/components/responses/Problem"
+        "404":
+          $ref: "#/components/responses/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
+  /api/v1/me/presets:
+    get:
+      operationId: listMyPresets
+      summary: The signed-in user's presets, drafts included
+      security: [{session: []}]
+      responses:
+        "200":
+          description: The newest 100, newest first.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Preset"
+        "401":
+          $ref: "#/components/responses/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
   /api/v1/auth/signout:
     post:
       operationId: signOut
@@ -655,6 +811,143 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/Slicer"
+        next_cursor:
+          type: string
+          description: Send it as cursor to get the next page. It is missing on the last page.
+    Nozzle:
+      type: number
+      enum: [0.2, 0.25, 0.3, 0.4, 0.5, 0.6, 0.8, 1.0, 1.2]
+      description: The nozzle diameter in millimeters.
+    License:
+      type: string
+      enum: [CC-BY-4.0, CC-BY-SA-4.0, CC-BY-NC-4.0, CC0-1.0]
+      default: CC-BY-4.0
+    PresetCreate:
+      type: object
+      additionalProperties: false
+      required: [title, printer, material, nozzle_mm, slicer]
+      properties:
+        title:
+          type: string
+          minLength: 5
+          maxLength: 100
+        description:
+          type: string
+          maxLength: 4000
+        printer:
+          type: string
+          description: A printer slug from the catalog.
+        material:
+          type: string
+          description: A filament slug from the catalog.
+        nozzle_mm:
+          $ref: "#/components/schemas/Nozzle"
+        slicer:
+          type: string
+          description: A slicer slug from the catalog.
+        slicer_version:
+          type: string
+          maxLength: 20
+        license:
+          $ref: "#/components/schemas/License"
+        status:
+          type: string
+          enum: [draft, published]
+    PresetUpdate:
+      type: object
+      additionalProperties: false
+      description: Only the fields that are given change.
+      properties:
+        title:
+          type: string
+          minLength: 5
+          maxLength: 100
+        description:
+          type: string
+          maxLength: 4000
+        printer:
+          type: string
+          description: A printer slug from the catalog.
+        material:
+          type: string
+          description: A filament slug from the catalog.
+        nozzle_mm:
+          $ref: "#/components/schemas/Nozzle"
+        slicer:
+          type: string
+          description: A slicer slug from the catalog.
+        slicer_version:
+          type: string
+          maxLength: 20
+        license:
+          $ref: "#/components/schemas/License"
+        status:
+          type: string
+          enum: [draft, published]
+    Preset:
+      type: object
+      required: [id, slug, title, author, printer, material, nozzle_mm, slicer, slicer_version, license, status, created_at, updated_at]
+      properties:
+        id:
+          type: string
+          description: The public ID. The site's URL is /presets/<slug>-<id>.
+        slug:
+          type: string
+        title:
+          type: string
+        description:
+          type: string
+          description: Plain text. Only in the one-preset answers.
+        author:
+          type: object
+          required: [handle, display_name]
+          properties:
+            handle:
+              type: string
+            display_name:
+              type: string
+        printer:
+          $ref: "#/components/schemas/Printer"
+        material:
+          type: object
+          required: [slug, product_name, type, brand]
+          properties:
+            slug:
+              type: string
+            product_name:
+              type: string
+            type:
+              $ref: "#/components/schemas/MaterialType"
+            brand:
+              $ref: "#/components/schemas/Brand"
+        nozzle_mm:
+          $ref: "#/components/schemas/Nozzle"
+        slicer:
+          $ref: "#/components/schemas/Slicer"
+        slicer_version:
+          type: string
+        license:
+          $ref: "#/components/schemas/License"
+        status:
+          type: string
+          enum: [draft, published]
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        published_at:
+          type: string
+          format: date-time
+    PresetPage:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/Preset"
         next_cursor:
           type: string
           description: Send it as cursor to get the next page. It is missing on the last page.

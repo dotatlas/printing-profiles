@@ -1,0 +1,36 @@
+meta {
+  name: create a preset
+  type: http
+  seq: 17
+}
+
+post {
+  url: {{baseUrl}}/api/v1/presets
+  body: json
+  auth: none
+}
+
+headers {
+  Cookie: __Host-session={{session}}
+  Origin: {{siteOrigin}}
+}
+
+body:json {
+  {"title": "PLA Basic tuned for the P1S", "printer": "bambu-lab-p1s", "material": "bambu-lab-pla-basic", "slicer": "orcaslicer", "nozzle_mm": 0.4, "status": "published"}
+}
+
+script:post-response {
+  bru.setVar("presetId", res.body.id);
+}
+
+assert {
+  res.status: eq 201
+  res.body.slug: eq pla-basic-tuned-for-the-p1s
+  res.body.status: eq published
+}
+
+tests {
+  test("has a readable 8-character public ID", function () {
+    expect(res.body.id).to.match(/^[a-z2-9]{8}$/);
+  });
+}

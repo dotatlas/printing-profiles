@@ -175,6 +175,63 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/presets": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Browse published presets, newest first */
+        get: operations["listPresets"];
+        put?: never;
+        /** Make a preset (signed in, with a handle) */
+        post: operations["createPreset"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/presets/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The preset's public ID. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        /** One preset (a draft only for its author) */
+        get: operations["getPreset"];
+        put?: never;
+        post?: never;
+        /** Delete the author's own preset (soft) */
+        delete: operations["deletePreset"];
+        options?: never;
+        head?: never;
+        /** Change the author's own preset */
+        patch: operations["updatePreset"];
+        trace?: never;
+    };
+    "/api/v1/me/presets": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The signed-in user's presets, drafts included */
+        get: operations["listMyPresets"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/auth/signout": {
         parameters: {
             query?: never;
@@ -368,6 +425,83 @@ export interface components {
             /** @description Send it as cursor to get the next page. It is missing on the last page. */
             next_cursor?: string;
         };
+        /**
+         * @description The nozzle diameter in millimeters.
+         * @enum {number}
+         */
+        Nozzle: 0.2 | 0.25 | 0.3 | 0.4 | 0.5 | 0.6 | 0.8 | 1 | 1.2;
+        /**
+         * @default CC-BY-4.0
+         * @enum {string}
+         */
+        License: "CC-BY-4.0" | "CC-BY-SA-4.0" | "CC-BY-NC-4.0" | "CC0-1.0";
+        PresetCreate: {
+            title: string;
+            description?: string;
+            /** @description A printer slug from the catalog. */
+            printer: string;
+            /** @description A filament slug from the catalog. */
+            material: string;
+            nozzle_mm: components["schemas"]["Nozzle"];
+            /** @description A slicer slug from the catalog. */
+            slicer: string;
+            slicer_version?: string;
+            license?: components["schemas"]["License"];
+            /** @enum {string} */
+            status?: "draft" | "published";
+        };
+        /** @description Only the fields that are given change. */
+        PresetUpdate: {
+            title?: string;
+            description?: string;
+            /** @description A printer slug from the catalog. */
+            printer?: string;
+            /** @description A filament slug from the catalog. */
+            material?: string;
+            nozzle_mm?: components["schemas"]["Nozzle"];
+            /** @description A slicer slug from the catalog. */
+            slicer?: string;
+            slicer_version?: string;
+            license?: components["schemas"]["License"];
+            /** @enum {string} */
+            status?: "draft" | "published";
+        };
+        Preset: {
+            /** @description The public ID. The site's URL is /presets/<slug>-<id>. */
+            id: string;
+            slug: string;
+            title: string;
+            /** @description Plain text. Only in the one-preset answers. */
+            description?: string;
+            author: {
+                handle: string;
+                display_name: string;
+            };
+            printer: components["schemas"]["Printer"];
+            material: {
+                slug: string;
+                product_name: string;
+                type: components["schemas"]["MaterialType"];
+                brand: components["schemas"]["Brand"];
+            };
+            nozzle_mm: components["schemas"]["Nozzle"];
+            slicer: components["schemas"]["Slicer"];
+            slicer_version: string;
+            license: components["schemas"]["License"];
+            /** @enum {string} */
+            status: "draft" | "published";
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
+            /** Format: date-time */
+            published_at?: string;
+        };
+        PresetPage: {
+            items: components["schemas"]["Preset"][];
+            /** @description Send it as cursor to get the next page. It is missing on the last page. */
+            next_cursor?: string;
+        };
         Me: {
             /** @description Empty until onboarding. */
             handle: string;
@@ -457,6 +591,12 @@ export type Slicer = components['schemas']['Slicer'];
 export type PrinterPage = components['schemas']['PrinterPage'];
 export type MaterialPage = components['schemas']['MaterialPage'];
 export type SlicerPage = components['schemas']['SlicerPage'];
+export type Nozzle = components['schemas']['Nozzle'];
+export type License = components['schemas']['License'];
+export type PresetCreate = components['schemas']['PresetCreate'];
+export type PresetUpdate = components['schemas']['PresetUpdate'];
+export type Preset = components['schemas']['Preset'];
+export type PresetPage = components['schemas']['PresetPage'];
 export type Me = components['schemas']['Me'];
 export type Identity = components['schemas']['Identity'];
 export type Session = components['schemas']['Session'];
@@ -783,6 +923,189 @@ export interface operations {
             default: components["responses"]["Problem"];
         };
     };
+    listPresets: {
+        parameters: {
+            query?: {
+                /** @description A printer slug. */
+                printer?: string;
+                /** @description A filament slug. */
+                material?: string;
+                /** @description A filament type such as PLA. */
+                type?: components["schemas"]["MaterialType"];
+                /** @description A filament brand slug. */
+                brand?: string;
+                nozzle?: components["schemas"]["Nozzle"];
+                /** @description A slicer slug. */
+                slicer?: string;
+                /** @description The next_cursor value from the page before. Leave it out for the first page. */
+                cursor?: components["parameters"]["Cursor"];
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description One page of presets, without descriptions. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PresetPage"];
+                };
+            };
+            400: components["responses"]["Problem"];
+            default: components["responses"]["Problem"];
+        };
+    };
+    createPreset: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PresetCreate"];
+            };
+        };
+        responses: {
+            /** @description The new preset. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Preset"];
+                };
+            };
+            400: components["responses"]["Problem"];
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            415: components["responses"]["Problem"];
+            429: components["responses"]["Problem"];
+            default: components["responses"]["Problem"];
+        };
+    };
+    getPreset: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The preset's public ID. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The preset, with its description. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Preset"];
+                };
+            };
+            404: components["responses"]["Problem"];
+            default: components["responses"]["Problem"];
+        };
+    };
+    deletePreset: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The preset's public ID. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted. Nobody can read it any more. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            415: components["responses"]["Problem"];
+            default: components["responses"]["Problem"];
+        };
+    };
+    updatePreset: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The preset's public ID. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PresetUpdate"];
+            };
+        };
+        responses: {
+            /** @description The changed preset. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Preset"];
+                };
+            };
+            400: components["responses"]["Problem"];
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            /** @description No such preset, or not the author's. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            415: components["responses"]["Problem"];
+            default: components["responses"]["Problem"];
+        };
+    };
+    listMyPresets: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The newest 100, newest first. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: components["schemas"]["Preset"][];
+                    };
+                };
+            };
+            401: components["responses"]["Problem"];
+            default: components["responses"]["Problem"];
+        };
+    };
     signOut: {
         parameters: {
             query?: never;
@@ -991,5 +1314,10 @@ type ReadonlyArray<T> = [
 export const pathsApiV1AuthProviderStartGetParametersQueryLinkValues: ReadonlyArray<FlattenedDeepRequired<paths>["/api/v1/auth/{provider}/start"]["get"]["parameters"]["query"]["link"]> = ["1"];
 export const materialTypeValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["MaterialType"]> = ["PLA", "PETG", "ABS", "ASA", "TPU", "PA", "PC"];
 export const materialDiameter_mmValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["Material"]["diameter_mm"]> = [1.75, 2.85];
+export const nozzleValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["Nozzle"]> = [0.2, 0.25, 0.3, 0.4, 0.5, 0.6, 0.8, 1, 1.2];
+export const licenseValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["License"]> = ["CC-BY-4.0", "CC-BY-SA-4.0", "CC-BY-NC-4.0", "CC0-1.0"];
+export const presetCreateStatusValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["PresetCreate"]["status"]> = ["draft", "published"];
+export const presetUpdateStatusValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["PresetUpdate"]["status"]> = ["draft", "published"];
+export const presetStatusValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["Preset"]["status"]> = ["draft", "published"];
 export const identityProviderValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["Identity"]["provider"]> = ["github", "discord", "email", "fake"];
 export const componentsParametersProviderValues: ReadonlyArray<FlattenedDeepRequired<components>["parameters"]["Provider"]> = ["github", "discord"];

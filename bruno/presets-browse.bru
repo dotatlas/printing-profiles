@@ -1,0 +1,25 @@
+meta {
+  name: browse presets by filament type
+  type: http
+  seq: 7
+}
+
+get {
+  url: {{baseUrl}}/api/v1/presets?type=PLA&nozzle=0.4&limit=5
+  body: none
+  auth: none
+}
+
+assert {
+  res.status: eq 200
+  res.body.items: isArray
+}
+
+tests {
+  test("lists only PLA presets, without descriptions", function () {
+    for (const p of res.body.items) {
+      expect(p.material.type).to.equal("PLA");
+      expect(p).to.not.have.property("description");
+    }
+  });
+}

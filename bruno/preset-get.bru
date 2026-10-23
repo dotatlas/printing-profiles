@@ -1,0 +1,17 @@
+meta {
+  name: one preset
+  type: http
+  seq: 18
+}
+
+get {
+  url: {{baseUrl}}/api/v1/presets/{{presetId}}
+  body: none
+  auth: none
+}
+
+assert {
+  res.status: eq 200
+  res.body.printer.model: eq P1S
+  res.body.material.type: eq PLA
+}

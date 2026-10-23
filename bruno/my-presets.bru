@@ -1,0 +1,20 @@
+meta {
+  name: my presets
+  type: http
+  seq: 20
+}
+
+get {
+  url: {{baseUrl}}/api/v1/me/presets
+  body: none
+  auth: none
+}
+
+headers {
+  Cookie: __Host-session={{session}}
+}
+
+assert {
+  res.status: eq 200
+  res.body.items.length: eq 1
+}

@@ -1,0 +1,20 @@
+meta {
+  name: delete the preset
+  type: http
+  seq: 21
+}
+
+delete {
+  url: {{baseUrl}}/api/v1/presets/{{presetId}}
+  body: none
+  auth: none
+}
+
+headers {
+  Cookie: __Host-session={{session}}
+  Origin: {{siteOrigin}}
+}
+
+assert {
+  res.status: eq 204
+}
