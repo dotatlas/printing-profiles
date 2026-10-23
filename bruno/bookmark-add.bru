@@ -1,0 +1,24 @@
+meta {
+  name: bookmark a preset
+  type: http
+  seq: 44
+}
+
+post {
+  url: {{baseUrl}}/api/v1/me/bookmarks
+  body: json
+  auth: none
+}
+
+headers {
+  Cookie: __Host-session={{session}}
+  Origin: {{siteOrigin}}
+}
+
+body:json {
+  {"preset": "{{filePresetId}}"}
+}
+
+assert {
+  res.status: eq 204
+}

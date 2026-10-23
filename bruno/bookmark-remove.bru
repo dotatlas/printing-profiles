@@ -1,0 +1,20 @@
+meta {
+  name: remove a bookmark
+  type: http
+  seq: 47
+}
+
+delete {
+  url: {{baseUrl}}/api/v1/me/bookmarks/{{filePresetId}}
+  body: none
+  auth: none
+}
+
+headers {
+  Cookie: __Host-session={{session}}
+  Origin: {{siteOrigin}}
+}
+
+assert {
+  res.status: eq 204
+}

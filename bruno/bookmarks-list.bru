@@ -1,0 +1,20 @@
+meta {
+  name: list my bookmarks
+  type: http
+  seq: 46
+}
+
+get {
+  url: {{baseUrl}}/api/v1/me/bookmarks
+  body: none
+  auth: none
+}
+
+headers {
+  Cookie: __Host-session={{session}}
+}
+
+assert {
+  res.status: eq 200
+  res.body.items[0].id: eq {{filePresetId}}
+}

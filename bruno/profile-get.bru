@@ -1,0 +1,18 @@
+meta {
+  name: a member's public profile
+  type: http
+  seq: 48
+}
+
+get {
+  url: {{baseUrl}}/api/v1/users/{{reviewer}}
+  body: none
+  auth: none
+}
+
+assert {
+  res.status: eq 200
+  res.body.handle: eq {{reviewer}}
+  res.body.review_count: eq 0
+  res.body.preset_count: eq 0
+}

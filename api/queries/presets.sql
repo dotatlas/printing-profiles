@@ -32,6 +32,7 @@ WHERE status = 'published' AND deleted_at IS NULL
   AND (sqlc.narg(brand)::text IS NULL OR material_brand_slug = sqlc.narg(brand))
   AND (sqlc.narg(nozzle)::float8 IS NULL OR nozzle_mm = sqlc.narg(nozzle))
   AND (sqlc.narg(slicer)::text IS NULL OR slicer_slug = sqlc.narg(slicer))
+  AND (sqlc.narg(author)::text IS NULL OR author_handle = sqlc.narg(author))
   AND (sqlc.narg(after_created)::timestamptz IS NULL
        OR (created_at, id) < (sqlc.narg(after_created)::timestamptz, sqlc.narg(after_id)::bigint))
 ORDER BY created_at DESC, id DESC

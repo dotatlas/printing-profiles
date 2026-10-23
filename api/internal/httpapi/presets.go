@@ -407,9 +407,9 @@ func (s *Server) handleListPresets(w http.ResponseWriter, r *http.Request) {
 	q := r.URL.Query()
 	params := db.ListPresetsParams{
 		Printer: text(q.Get("printer")), Material: text(q.Get("material")), Type: text(q.Get("type")),
-		Brand: text(q.Get("brand")), Slicer: text(q.Get("slicer")), MaxRows: defaultPresets + 1,
+		Brand: text(q.Get("brand")), Slicer: text(q.Get("slicer")), Author: text(q.Get("author")), MaxRows: defaultPresets + 1,
 	}
-	for _, v := range []string{q.Get("printer"), q.Get("material"), q.Get("type"), q.Get("brand"), q.Get("slicer"), q.Get("cursor")} {
+	for _, v := range []string{q.Get("printer"), q.Get("material"), q.Get("type"), q.Get("brand"), q.Get("slicer"), q.Get("author"), q.Get("cursor")} {
 		if len(v) > maxSearchLength {
 			writeProblem(w, http.StatusBadRequest, "filters and cursor must be 100 characters or fewer")
 			return

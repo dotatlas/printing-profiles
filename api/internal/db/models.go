@@ -10,6 +10,12 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+type Bookmark struct {
+	UserID    int64
+	PresetID  int64
+	CreatedAt time.Time
+}
+
 type Brand struct {
 	ID   int64
 	Name string

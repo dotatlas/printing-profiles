@@ -318,6 +318,64 @@ export interface paths {
         patch: operations["updateComment"];
         trace?: never;
     };
+    "/api/v1/me/bookmarks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Your bookmarked presets that are still published, newest bookmark first (signed in) */
+        get: operations["listBookmarks"];
+        put?: never;
+        /** Bookmark a published preset (signed in); a second add changes nothing */
+        post: operations["addBookmark"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/bookmarks/{preset}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                preset: string;
+            };
+            cookie?: never;
+        };
+        /** Whether you bookmarked a preset (signed in) */
+        get: operations["isBookmarked"];
+        put?: never;
+        post?: never;
+        /** Remove a preset from your bookmarks (signed in); a preset that was not bookmarked changes nothing */
+        delete: operations["removeBookmark"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/users/{handle}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * A member's public profile
+         * @description The member's presets come from listPresets with author set to the handle.
+         */
+        get: operations["getProfile"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/me/presets": {
         parameters: {
             query?: never;
@@ -758,6 +816,15 @@ export interface components {
             /** @description Send it as cursor to get the next page. It is missing on the last page. */
             next_cursor?: string;
         };
+        Profile: {
+            handle: string;
+            display_name: string;
+            /** Format: date-time */
+            joined_at: string;
+            /** @description Published presets. */
+            preset_count: number;
+            review_count: number;
+        };
         PresetFile: {
             /** @enum {string} */
             slicer: "prusaslicer" | "superslicer" | "orcaslicer";
@@ -937,6 +1004,7 @@ export type ReviewPage = components['schemas']['ReviewPage'];
 export type CommentCreate = components['schemas']['CommentCreate'];
 export type Comment = components['schemas']['Comment'];
 export type CommentPage = components['schemas']['CommentPage'];
+export type Profile = components['schemas']['Profile'];
 export type PresetFile = components['schemas']['PresetFile'];
 export type UploadCreate = components['schemas']['UploadCreate'];
 export type UploadTicket = components['schemas']['UploadTicket'];
@@ -1283,6 +1351,8 @@ export interface operations {
                 nozzle?: components["schemas"]["Nozzle"];
                 /** @description A slicer slug. */
                 slicer?: string;
+                /** @description A member's handle. */
+                author?: string;
                 /** @description The next_cursor value from the page before. Leave it out for the first page. */
                 cursor?: components["parameters"]["Cursor"];
                 limit?: number;
@@ -1681,6 +1751,130 @@ export interface operations {
             };
             400: components["responses"]["Problem"];
             401: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            default: components["responses"]["Problem"];
+        };
+    };
+    listBookmarks: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Up to 100 bookmarked presets. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: components["schemas"]["Preset"][];
+                    };
+                };
+            };
+            401: components["responses"]["Problem"];
+            default: components["responses"]["Problem"];
+        };
+    };
+    addBookmark: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    preset: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Bookmarked. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            429: components["responses"]["Problem"];
+            default: components["responses"]["Problem"];
+        };
+    };
+    isBookmarked: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                preset: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The answer. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        bookmarked: boolean;
+                    };
+                };
+            };
+            401: components["responses"]["Problem"];
+            default: components["responses"]["Problem"];
+        };
+    };
+    removeBookmark: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                preset: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Removed. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Problem"];
+            default: components["responses"]["Problem"];
+        };
+    };
+    getProfile: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                handle: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The profile. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Profile"];
+                };
+            };
             404: components["responses"]["Problem"];
             default: components["responses"]["Problem"];
         };

@@ -1,0 +1,20 @@
+meta {
+  name: is the preset bookmarked
+  type: http
+  seq: 45
+}
+
+get {
+  url: {{baseUrl}}/api/v1/me/bookmarks/{{filePresetId}}
+  body: none
+  auth: none
+}
+
+headers {
+  Cookie: __Host-session={{session}}
+}
+
+assert {
+  res.status: eq 200
+  res.body.bookmarked: eq true
+}

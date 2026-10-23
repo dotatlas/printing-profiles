@@ -12,6 +12,22 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const addBookmark = `-- name: AddBookmark :exec
+INSERT INTO bookmarks (user_id, preset_id) VALUES ($1, $2)
+ON CONFLICT DO NOTHING
+`
+
+type AddBookmarkParams struct {
+	UserID   int64
+	PresetID int64
+}
+
+// Adding a bookmark twice changes nothing.
+func (q *Queries) AddBookmark(ctx context.Context, arg AddBookmarkParams) error {
+	_, err := q.db.Exec(ctx, addBookmark, arg.UserID, arg.PresetID)
+	return err
+}
+
 const commentParent = `-- name: CommentParent :one
 SELECT id FROM comments
 WHERE public_id = $1 AND preset_id = $2 AND parent_id IS NULL AND deleted_at IS NULL
@@ -121,6 +137,121 @@ func (q *Queries) GetComment(ctx context.Context, publicID string) (GetCommentRo
 		&i.AuthorDisplayName,
 	)
 	return i, err
+}
+
+const getProfile = `-- name: GetProfile :one
+SELECT u.handle::text AS handle, u.display_name, u.created_at,
+       (SELECT count(*) FROM presets p WHERE p.author_id = u.id AND p.status = 'published' AND p.deleted_at IS NULL)::bigint AS preset_count,
+       (SELECT count(*) FROM reviews r WHERE r.author_id = u.id)::bigint AS review_count
+FROM users u
+WHERE lower(u.handle) = lower($1)
+`
+
+type GetProfileRow struct {
+	Handle      string
+	DisplayName string
+	CreatedAt   time.Time
+	PresetCount int64
+	ReviewCount int64
+}
+
+// A public profile: only a user who chose a handle has one.
+func (q *Queries) GetProfile(ctx context.Context, handle string) (GetProfileRow, error) {
+	row := q.db.QueryRow(ctx, getProfile, handle)
+	var i GetProfileRow
+	err := row.Scan(
+		&i.Handle,
+		&i.DisplayName,
+		&i.CreatedAt,
+		&i.PresetCount,
+		&i.ReviewCount,
+	)
+	return i, err
+}
+
+const isBookmarked = `-- name: IsBookmarked :one
+SELECT EXISTS (
+    SELECT 1 FROM bookmarks b JOIN presets p ON p.id = b.preset_id
+    WHERE b.user_id = $1 AND p.public_id = $2
+)::boolean
+`
+
+type IsBookmarkedParams struct {
+	UserID   int64
+	PublicID string
+}
+
+func (q *Queries) IsBookmarked(ctx context.Context, arg IsBookmarkedParams) (bool, error) {
+	row := q.db.QueryRow(ctx, isBookmarked, arg.UserID, arg.PublicID)
+	var column_1 bool
+	err := row.Scan(&column_1)
+	return column_1, err
+}
+
+const listBookmarks = `-- name: ListBookmarks :many
+SELECT v.id, v.public_id, v.author_id, v.author_handle, v.author_display_name, v.title, v.slug, v.description, v.printer_slug, v.printer_model, v.printer_brand_slug, v.printer_brand_name, v.material_slug, v.material_product_name, v.material_type, v.material_brand_slug, v.material_brand_name, v.nozzle_mm, v.slicer_slug, v.slicer_name, v.slicer_version, v.license, v.status, v.created_at, v.updated_at, v.published_at, v.deleted_at, v.file_key, v.file_slicer, v.file_kind, v.file_slicer_version, v.file_settings, v.download_count, v.rating_count, v.rating_sum FROM bookmarks b
+JOIN preset_view v ON v.id = b.preset_id
+WHERE b.user_id = $1 AND v.status = 'published' AND v.deleted_at IS NULL
+ORDER BY b.created_at DESC
+LIMIT 100
+`
+
+// shortcut: the newest 100 only; page it when members save more than 100 presets.
+// A preset that is no longer published drops out of the list, and comes back if it is published again.
+func (q *Queries) ListBookmarks(ctx context.Context, userID int64) ([]PresetView, error) {
+	rows, err := q.db.Query(ctx, listBookmarks, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []PresetView
+	for rows.Next() {
+		var i PresetView
+		if err := rows.Scan(
+			&i.ID,
+			&i.PublicID,
+			&i.AuthorID,
+			&i.AuthorHandle,
+			&i.AuthorDisplayName,
+			&i.Title,
+			&i.Slug,
+			&i.Description,
+			&i.PrinterSlug,
+			&i.PrinterModel,
+			&i.PrinterBrandSlug,
+			&i.PrinterBrandName,
+			&i.MaterialSlug,
+			&i.MaterialProductName,
+			&i.MaterialType,
+			&i.MaterialBrandSlug,
+			&i.MaterialBrandName,
+			&i.NozzleMm,
+			&i.SlicerSlug,
+			&i.SlicerName,
+			&i.SlicerVersion,
+			&i.License,
+			&i.Status,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.PublishedAt,
+			&i.DeletedAt,
+			&i.FileKey,
+			&i.FileSlicer,
+			&i.FileKind,
+			&i.FileSlicerVersion,
+			&i.FileSettings,
+			&i.DownloadCount,
+			&i.RatingCount,
+			&i.RatingSum,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const listReplies = `-- name: ListReplies :many
@@ -346,6 +477,21 @@ func (q *Queries) PublishedPreset(ctx context.Context, publicID string) (Publish
 	var i PublishedPresetRow
 	err := row.Scan(&i.ID, &i.AuthorID)
 	return i, err
+}
+
+const removeBookmark = `-- name: RemoveBookmark :exec
+DELETE FROM bookmarks WHERE user_id = $1
+  AND preset_id = (SELECT id FROM presets WHERE public_id = $2)
+`
+
+type RemoveBookmarkParams struct {
+	UserID   int64
+	PublicID string
+}
+
+func (q *Queries) RemoveBookmark(ctx context.Context, arg RemoveBookmarkParams) error {
+	_, err := q.db.Exec(ctx, removeBookmark, arg.UserID, arg.PublicID)
+	return err
 }
 
 const updateComment = `-- name: UpdateComment :execrows

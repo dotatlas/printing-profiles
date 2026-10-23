@@ -205,10 +205,11 @@ WHERE status = 'published' AND deleted_at IS NULL
   AND ($4::text IS NULL OR material_brand_slug = $4)
   AND ($5::float8 IS NULL OR nozzle_mm = $5)
   AND ($6::text IS NULL OR slicer_slug = $6)
-  AND ($7::timestamptz IS NULL
-       OR (created_at, id) < ($7::timestamptz, $8::bigint))
+  AND ($7::text IS NULL OR author_handle = $7)
+  AND ($8::timestamptz IS NULL
+       OR (created_at, id) < ($8::timestamptz, $9::bigint))
 ORDER BY created_at DESC, id DESC
-LIMIT $9::int
+LIMIT $10::int
 `
 
 type ListPresetsParams struct {
@@ -218,6 +219,7 @@ type ListPresetsParams struct {
 	Brand        pgtype.Text
 	Nozzle       pgtype.Float8
 	Slicer       pgtype.Text
+	Author       pgtype.Text
 	AfterCreated pgtype.Timestamptz
 	AfterID      pgtype.Int8
 	MaxRows      int32
@@ -231,6 +233,7 @@ func (q *Queries) ListPresets(ctx context.Context, arg ListPresetsParams) ([]Pre
 		arg.Brand,
 		arg.Nozzle,
 		arg.Slicer,
+		arg.Author,
 		arg.AfterCreated,
 		arg.AfterID,
 		arg.MaxRows,

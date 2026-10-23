@@ -76,3 +76,35 @@ FROM comments c
 JOIN users u ON u.id = c.author_id
 WHERE c.parent_id = ANY(sqlc.arg(parent_ids)::bigint[]) AND c.deleted_at IS NULL
 ORDER BY c.created_at, c.id;
+
+-- name: AddBookmark :exec
+-- Adding a bookmark twice changes nothing.
+INSERT INTO bookmarks (user_id, preset_id) VALUES (sqlc.arg(user_id), sqlc.arg(preset_id))
+ON CONFLICT DO NOTHING;
+
+-- name: RemoveBookmark :exec
+DELETE FROM bookmarks WHERE user_id = sqlc.arg(user_id)
+  AND preset_id = (SELECT id FROM presets WHERE public_id = sqlc.arg(public_id));
+
+-- name: IsBookmarked :one
+SELECT EXISTS (
+    SELECT 1 FROM bookmarks b JOIN presets p ON p.id = b.preset_id
+    WHERE b.user_id = sqlc.arg(user_id) AND p.public_id = sqlc.arg(public_id)
+)::boolean;
+
+-- name: ListBookmarks :many
+-- shortcut: the newest 100 only; page it when members save more than 100 presets.
+-- A preset that is no longer published drops out of the list, and comes back if it is published again.
+SELECT v.* FROM bookmarks b
+JOIN preset_view v ON v.id = b.preset_id
+WHERE b.user_id = sqlc.arg(user_id) AND v.status = 'published' AND v.deleted_at IS NULL
+ORDER BY b.created_at DESC
+LIMIT 100;
+
+-- name: GetProfile :one
+-- A public profile: only a user who chose a handle has one.
+SELECT u.handle::text AS handle, u.display_name, u.created_at,
+       (SELECT count(*) FROM presets p WHERE p.author_id = u.id AND p.status = 'published' AND p.deleted_at IS NULL)::bigint AS preset_count,
+       (SELECT count(*) FROM reviews r WHERE r.author_id = u.id)::bigint AS review_count
+FROM users u
+WHERE lower(u.handle) = lower(sqlc.arg(handle));

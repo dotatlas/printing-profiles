@@ -1,0 +1,16 @@
+meta {
+  name: browse a member's presets
+  type: http
+  seq: 49
+}
+
+get {
+  url: {{baseUrl}}/api/v1/presets?author={{login}}
+  body: none
+  auth: none
+}
+
+assert {
+  res.status: eq 200
+  res.body.items[0].author.handle: eq {{login}}
+}
