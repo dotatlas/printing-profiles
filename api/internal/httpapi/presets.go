@@ -4,8 +4,10 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/base64"
+	"encoding/json"
 	"errors"
 	"net/http"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -18,6 +20,7 @@ import (
 	"golang.org/x/text/unicode/norm"
 
 	"github.com/dotatlas/printing-profiles/api/internal/db"
+	"github.com/dotatlas/printing-profiles/api/internal/presetfile"
 )
 
 const (
@@ -126,10 +129,22 @@ type presetJSON struct {
 	CreatedAt     time.Time   `json:"created_at"`
 	UpdatedAt     time.Time   `json:"updated_at"`
 	PublishedAt   *time.Time  `json:"published_at,omitempty"`
+	File          *fileJSON   `json:"file,omitempty"`
+	DownloadCount int64       `json:"download_count"`
+}
+
+// fileJSON is the checked preset file of a preset: what the check found, and where to download it.
+type fileJSON struct {
+	Slicer        string               `json:"slicer"`
+	Kind          string               `json:"kind"`
+	SlicerVersion string               `json:"slicer_version"`
+	Settings      []presetfile.Setting `json:"settings"`
+	DownloadURL   string               `json:"download_url"` // the API route that counts the download
+	FileURL       string               `json:"file_url"`     // the file itself on the files origin
 }
 
 // toPresetJSON maps a preset_view row to its JSON. withDescription is true for the one-preset answer.
-func toPresetJSON(p db.PresetView, withDescription bool) presetJSON {
+func (s *Server) toPresetJSON(p db.PresetView, withDescription bool) presetJSON {
 	out := presetJSON{
 		ID: p.PublicID, Slug: p.Slug, Title: p.Title,
 		Author:   authorJSON{Handle: p.AuthorHandle, DisplayName: p.AuthorDisplayName},
@@ -137,7 +152,14 @@ func toPresetJSON(p db.PresetView, withDescription bool) presetJSON {
 		Material: materialRef{Slug: p.MaterialSlug, ProductName: p.MaterialProductName, Type: p.MaterialType, Brand: brandJSON{Slug: p.MaterialBrandSlug, Name: p.MaterialBrandName}},
 		NozzleMM: p.NozzleMm, Slicer: slicerJSON{Slug: p.SlicerSlug, Name: p.SlicerName},
 		SlicerVersion: p.SlicerVersion, License: p.License, Status: p.Status,
-		CreatedAt: p.CreatedAt, UpdatedAt: p.UpdatedAt,
+		CreatedAt: p.CreatedAt, UpdatedAt: p.UpdatedAt, DownloadCount: p.DownloadCount,
+	}
+	if p.FileKey != "" {
+		out.File = &fileJSON{
+			Slicer: p.FileSlicer, Kind: p.FileKind, SlicerVersion: p.FileSlicerVersion,
+			DownloadURL: s.Cfg.APIOrigin + "/api/v1/presets/" + p.PublicID + "/download", FileURL: s.Cfg.R2.FilesOrigin + "/" + p.FileKey,
+		}
+		_ = json.Unmarshal(p.FileSettings, &out.File.Settings) // The API wrote the JSON itself, so it reads back.
 	}
 	if withDescription {
 		out.Description = &p.Description
@@ -170,19 +192,43 @@ type presetInput struct {
 	SlicerVersion *string  `json:"slicer_version"`
 	License       *string  `json:"license"`
 	Status        *string  `json:"status"`
+	File          *string  `json:"file"` // the ID of a checked upload
 }
 
 // checked is presetInput after validation: trimmed text and catalog IDs. check makes it.
 type checked struct {
 	title, slug, description, slicerVersion, license, status pgtype.Text
-	printer, material, slicer                                pgtype.Int8
+	printer, material, slicer, file                          pgtype.Int8
 	nozzle                                                   pgtype.Float8
+	fileSlicer                                               string // the slicer format of the file, when one is given
+}
+
+// fileSlicers lists the catalog slicers that can read each preset file format. checkFile uses it.
+var fileSlicers = map[string][]string{
+	"prusaslicer": {"prusaslicer", "superslicer"},
+	"superslicer": {"superslicer", "prusaslicer"},
+	"orcaslicer":  {"orcaslicer", "bambu-studio", "creality-print"},
+}
+
+// fileFits says if a file in the format fileSlicer suits a preset for the catalog slicer slug.
+func fileFits(fileSlicer, slug string) bool {
+	return slices.Contains(fileSlicers[fileSlicer], slug)
 }
 
 // check validates the given fields and looks up the catalog slugs. It returns a problem detail that names the field,
 // or "" when the input is good. For create, need is true and every required field must be there.
-func (s *Server) check(ctx context.Context, in presetInput, need bool) (checked, string, error) {
+func (s *Server) check(ctx context.Context, in presetInput, need bool, authorID int64) (checked, string, error) {
 	var c checked
+	if in.File != nil {
+		f, err := s.DB.ReadyUpload(ctx, db.ReadyUploadParams{PublicID: *in.File, OwnerID: authorID})
+		if errors.Is(err, pgx.ErrNoRows) {
+			return c, "file is not one of your checked uploads", nil
+		}
+		if err != nil {
+			return c, "", err
+		}
+		c.file, c.fileSlicer = pgtype.Int8{Int64: f.ID, Valid: true}, f.Slicer
+	}
 	missing := func(name string) string { return name + " is required" }
 	if in.Title != nil {
 		t := strings.TrimSpace(*in.Title)
@@ -276,7 +322,10 @@ func (s *Server) handleCreatePreset(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	ctx := r.Context()
-	c, problem, err := s.check(ctx, in, true)
+	c, problem, err := s.check(ctx, in, true, u.UserID)
+	if problem == "" && c.fileSlicer != "" && !fileFits(c.fileSlicer, *in.Slicer) {
+		problem = "file is a " + c.fileSlicer + " preset; choose a slicer that reads it"
+	}
 	if err != nil {
 		s.fail(w, r, err)
 		return
@@ -288,7 +337,7 @@ func (s *Server) handleCreatePreset(w http.ResponseWriter, r *http.Request) {
 	params := db.CreatePresetParams{
 		AuthorID: u.UserID, Title: c.title.String, Slug: c.slug.String, Description: c.description.String,
 		PrinterID: c.printer.Int64, MaterialID: c.material.Int64, NozzleMm: c.nozzle.Float64, SlicerID: c.slicer.Int64,
-		SlicerVersion: c.slicerVersion.String, License: c.license.String, Status: c.status.String,
+		SlicerVersion: c.slicerVersion.String, License: c.license.String, Status: c.status.String, FileUploadID: c.file,
 	}
 	// Two random IDs in a row are almost never taken; three tries make a clash practically impossible.
 	for try := 0; ; try++ {
@@ -309,7 +358,7 @@ func (s *Server) handleCreatePreset(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, r, err)
 		return
 	}
-	writeJSON(w, http.StatusCreated, toPresetJSON(p, true))
+	writeJSON(w, http.StatusCreated, s.toPresetJSON(p, true))
 }
 
 // handleGetPreset sends one preset: a published one to anyone, a draft only to its author. The router calls it for
@@ -325,7 +374,7 @@ func (s *Server) handleGetPreset(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, r, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, toPresetJSON(p, true))
+	writeJSON(w, http.StatusOK, s.toPresetJSON(p, true))
 }
 
 // presetCursor encodes the position after one row as opaque text. decodePresetCursor reads it back.
@@ -401,7 +450,7 @@ func (s *Server) handleListPresets(w http.ResponseWriter, r *http.Request) {
 		page.NextCursor = presetCursor(rows[len(rows)-1])
 	}
 	for _, p := range rows {
-		page.Items = append(page.Items, toPresetJSON(p, false))
+		page.Items = append(page.Items, s.toPresetJSON(p, false))
 	}
 	writeJSON(w, http.StatusOK, page)
 }
@@ -419,7 +468,7 @@ func (s *Server) handleMyPresets(w http.ResponseWriter, r *http.Request) {
 	}
 	items := make([]presetJSON, 0, len(rows))
 	for _, p := range rows {
-		items = append(items, toPresetJSON(p, false))
+		items = append(items, s.toPresetJSON(p, false))
 	}
 	writeJSON(w, http.StatusOK, map[string][]presetJSON{"items": items})
 }
@@ -436,10 +485,17 @@ func (s *Server) handleUpdatePreset(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	ctx := r.Context()
-	c, problem, err := s.check(ctx, in, false)
+	c, problem, err := s.check(ctx, in, false, u.UserID)
 	if err != nil {
 		s.fail(w, r, err)
 		return
+	}
+	if problem == "" && (in.File != nil || in.Slicer != nil) {
+		problem, err = s.checkFileFits(ctx, r.PathValue("id"), u.UserID, in, c)
+		if err != nil {
+			s.fail(w, r, err)
+			return
+		}
 	}
 	if problem != "" {
 		writeProblem(w, http.StatusBadRequest, problem)
@@ -448,7 +504,7 @@ func (s *Server) handleUpdatePreset(w http.ResponseWriter, r *http.Request) {
 	id, err := s.DB.UpdatePreset(ctx, db.UpdatePresetParams{
 		Title: c.title, Slug: c.slug, Description: c.description, PrinterID: c.printer, MaterialID: c.material,
 		NozzleMm: c.nozzle, SlicerID: c.slicer, SlicerVersion: c.slicerVersion, License: c.license, Status: c.status,
-		PublicID: r.PathValue("id"), AuthorID: u.UserID,
+		FileUploadID: c.file, PublicID: r.PathValue("id"), AuthorID: u.UserID,
 	})
 	if errors.Is(err, pgx.ErrNoRows) {
 		writeProblem(w, http.StatusNotFound, "preset not found")
@@ -463,7 +519,7 @@ func (s *Server) handleUpdatePreset(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, r, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, toPresetJSON(p, true))
+	writeJSON(w, http.StatusOK, s.toPresetJSON(p, true))
 }
 
 // handleDeletePreset deletes the member's own preset softly: the row stays, but nobody can read it. The router calls
@@ -483,4 +539,46 @@ func (s *Server) handleDeletePreset(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
+}
+
+// checkFileFits checks, for an edit, that the file and the slicer still suit each other when either one changes.
+// It reads the preset for the value that the edit keeps. Another user's preset is skipped: the edit then answers 404.
+func (s *Server) checkFileFits(ctx context.Context, id string, authorID int64, in presetInput, c checked) (string, error) {
+	p, err := s.DB.GetPreset(ctx, id)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return "", nil
+	}
+	if err != nil || p.AuthorID != authorID {
+		return "", err
+	}
+	fileSlicer, slug := c.fileSlicer, p.SlicerSlug
+	if fileSlicer == "" {
+		fileSlicer = p.FileSlicer
+	}
+	if in.Slicer != nil {
+		slug = *in.Slicer
+	}
+	if fileSlicer != "" && !fileFits(fileSlicer, slug) {
+		return "file is a " + fileSlicer + " preset; choose a slicer that reads it", nil
+	}
+	return "", nil
+}
+
+// handlePresetDownload counts a download of a published preset's file and sends the browser to the file. The
+// router calls it for GET /api/v1/presets/{id}/download.
+func (s *Server) handlePresetDownload(w http.ResponseWriter, r *http.Request) {
+	p, err := s.DB.GetPreset(r.Context(), r.PathValue("id"))
+	if errors.Is(err, pgx.ErrNoRows) || err == nil && (p.Status != "published" || p.FileKey == "") {
+		writeProblem(w, http.StatusNotFound, "preset file not found")
+		return
+	}
+	if err != nil {
+		s.fail(w, r, err)
+		return
+	}
+	if err := s.DB.CountDownload(r.Context(), p.ID); err != nil {
+		s.fail(w, r, err)
+		return
+	}
+	http.Redirect(w, r, s.Cfg.R2.FilesOrigin+"/"+p.FileKey, http.StatusFound)
 }

@@ -11,13 +11,23 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const countDownload = `-- name: CountDownload :exec
+UPDATE presets SET download_count = download_count + 1 WHERE id = $1
+`
+
+// shortcut: counts every request, so a script can raise the count; count once per IP and day with the moderation work.
+func (q *Queries) CountDownload(ctx context.Context, id int64) error {
+	_, err := q.db.Exec(ctx, countDownload, id)
+	return err
+}
+
 const createPreset = `-- name: CreatePreset :exec
 INSERT INTO presets (public_id, author_id, title, slug, description, printer_id, material_id, nozzle_mm, slicer_id,
-                     slicer_version, license, status, published_at)
+                     slicer_version, license, status, published_at, file_upload_id)
 VALUES ($1, $2, $3, $4, $5,
         $6, $7, $8::float8::numeric(3, 2), $9,
         $10, $11, $12,
-        CASE WHEN $12::text = 'published' THEN now() END)
+        CASE WHEN $12::text = 'published' THEN now() END, $13)
 `
 
 type CreatePresetParams struct {
@@ -33,6 +43,7 @@ type CreatePresetParams struct {
 	SlicerVersion string
 	License       string
 	Status        string
+	FileUploadID  pgtype.Int8
 }
 
 func (q *Queries) CreatePreset(ctx context.Context, arg CreatePresetParams) error {
@@ -49,6 +60,7 @@ func (q *Queries) CreatePreset(ctx context.Context, arg CreatePresetParams) erro
 		arg.SlicerVersion,
 		arg.License,
 		arg.Status,
+		arg.FileUploadID,
 	)
 	return err
 }
@@ -72,7 +84,7 @@ func (q *Queries) DeletePreset(ctx context.Context, arg DeletePresetParams) (int
 }
 
 const getPreset = `-- name: GetPreset :one
-SELECT id, public_id, author_id, author_handle, author_display_name, title, slug, description, printer_slug, printer_model, printer_brand_slug, printer_brand_name, material_slug, material_product_name, material_type, material_brand_slug, material_brand_name, nozzle_mm, slicer_slug, slicer_name, slicer_version, license, status, created_at, updated_at, published_at, deleted_at FROM preset_view
+SELECT id, public_id, author_id, author_handle, author_display_name, title, slug, description, printer_slug, printer_model, printer_brand_slug, printer_brand_name, material_slug, material_product_name, material_type, material_brand_slug, material_brand_name, nozzle_mm, slicer_slug, slicer_name, slicer_version, license, status, created_at, updated_at, published_at, deleted_at, file_key, file_slicer, file_kind, file_slicer_version, file_settings, download_count FROM preset_view
 WHERE public_id = $1 AND deleted_at IS NULL AND status <> 'hidden'
 `
 
@@ -108,12 +120,18 @@ func (q *Queries) GetPreset(ctx context.Context, publicID string) (PresetView, e
 		&i.UpdatedAt,
 		&i.PublishedAt,
 		&i.DeletedAt,
+		&i.FileKey,
+		&i.FileSlicer,
+		&i.FileKind,
+		&i.FileSlicerVersion,
+		&i.FileSettings,
+		&i.DownloadCount,
 	)
 	return i, err
 }
 
 const listMyPresets = `-- name: ListMyPresets :many
-SELECT id, public_id, author_id, author_handle, author_display_name, title, slug, description, printer_slug, printer_model, printer_brand_slug, printer_brand_name, material_slug, material_product_name, material_type, material_brand_slug, material_brand_name, nozzle_mm, slicer_slug, slicer_name, slicer_version, license, status, created_at, updated_at, published_at, deleted_at FROM preset_view
+SELECT id, public_id, author_id, author_handle, author_display_name, title, slug, description, printer_slug, printer_model, printer_brand_slug, printer_brand_name, material_slug, material_product_name, material_type, material_brand_slug, material_brand_name, nozzle_mm, slicer_slug, slicer_name, slicer_version, license, status, created_at, updated_at, published_at, deleted_at, file_key, file_slicer, file_kind, file_slicer_version, file_settings, download_count FROM preset_view
 WHERE author_id = $1 AND deleted_at IS NULL
 ORDER BY created_at DESC, id DESC
 LIMIT 100
@@ -157,6 +175,12 @@ func (q *Queries) ListMyPresets(ctx context.Context, authorID int64) ([]PresetVi
 			&i.UpdatedAt,
 			&i.PublishedAt,
 			&i.DeletedAt,
+			&i.FileKey,
+			&i.FileSlicer,
+			&i.FileKind,
+			&i.FileSlicerVersion,
+			&i.FileSettings,
+			&i.DownloadCount,
 		); err != nil {
 			return nil, err
 		}
@@ -169,7 +193,7 @@ func (q *Queries) ListMyPresets(ctx context.Context, authorID int64) ([]PresetVi
 }
 
 const listPresets = `-- name: ListPresets :many
-SELECT id, public_id, author_id, author_handle, author_display_name, title, slug, description, printer_slug, printer_model, printer_brand_slug, printer_brand_name, material_slug, material_product_name, material_type, material_brand_slug, material_brand_name, nozzle_mm, slicer_slug, slicer_name, slicer_version, license, status, created_at, updated_at, published_at, deleted_at FROM preset_view
+SELECT id, public_id, author_id, author_handle, author_display_name, title, slug, description, printer_slug, printer_model, printer_brand_slug, printer_brand_name, material_slug, material_product_name, material_type, material_brand_slug, material_brand_name, nozzle_mm, slicer_slug, slicer_name, slicer_version, license, status, created_at, updated_at, published_at, deleted_at, file_key, file_slicer, file_kind, file_slicer_version, file_settings, download_count FROM preset_view
 WHERE status = 'published' AND deleted_at IS NULL
   AND ($1::text IS NULL OR printer_slug = $1)
   AND ($2::text IS NULL OR material_slug = $2)
@@ -242,6 +266,12 @@ func (q *Queries) ListPresets(ctx context.Context, arg ListPresetsParams) ([]Pre
 			&i.UpdatedAt,
 			&i.PublishedAt,
 			&i.DeletedAt,
+			&i.FileKey,
+			&i.FileSlicer,
+			&i.FileKind,
+			&i.FileSlicerVersion,
+			&i.FileSettings,
+			&i.DownloadCount,
 		); err != nil {
 			return nil, err
 		}
@@ -278,6 +308,29 @@ func (q *Queries) PrinterID(ctx context.Context, slug string) (int64, error) {
 	return id, err
 }
 
+const readyUpload = `-- name: ReadyUpload :one
+SELECT id, slicer FROM uploads
+WHERE public_id = $1 AND owner_id = $2 AND status = 'ready' AND kind = 'preset_file'
+`
+
+type ReadyUploadParams struct {
+	PublicID string
+	OwnerID  int64
+}
+
+type ReadyUploadRow struct {
+	ID     int64
+	Slicer string
+}
+
+// A preset can take only its author's own checked preset file.
+func (q *Queries) ReadyUpload(ctx context.Context, arg ReadyUploadParams) (ReadyUploadRow, error) {
+	row := q.db.QueryRow(ctx, readyUpload, arg.PublicID, arg.OwnerID)
+	var i ReadyUploadRow
+	err := row.Scan(&i.ID, &i.Slicer)
+	return i, err
+}
+
 const slicerID = `-- name: SlicerID :one
 SELECT id FROM slicers WHERE slug = $1
 `
@@ -300,10 +353,11 @@ UPDATE presets SET
     slicer_id      = coalesce($7, slicer_id),
     slicer_version = coalesce($8, slicer_version),
     license        = coalesce($9, license),
-    status         = coalesce($10, status),
-    published_at   = CASE WHEN coalesce($10, status) = 'published' THEN coalesce(published_at, now()) ELSE published_at END,
+    file_upload_id = coalesce($10, file_upload_id),
+    status         = coalesce($11, status),
+    published_at   = CASE WHEN coalesce($11, status) = 'published' THEN coalesce(published_at, now()) ELSE published_at END,
     updated_at     = now()
-WHERE public_id = $11 AND author_id = $12 AND deleted_at IS NULL AND status <> 'hidden'
+WHERE public_id = $12 AND author_id = $13 AND deleted_at IS NULL AND status <> 'hidden'
 RETURNING public_id
 `
 
@@ -317,6 +371,7 @@ type UpdatePresetParams struct {
 	SlicerID      pgtype.Int8
 	SlicerVersion pgtype.Text
 	License       pgtype.Text
+	FileUploadID  pgtype.Int8
 	Status        pgtype.Text
 	PublicID      string
 	AuthorID      int64
@@ -334,6 +389,7 @@ func (q *Queries) UpdatePreset(ctx context.Context, arg UpdatePresetParams) (str
 		arg.SlicerID,
 		arg.SlicerVersion,
 		arg.License,
+		arg.FileUploadID,
 		arg.Status,
 		arg.PublicID,
 		arg.AuthorID,

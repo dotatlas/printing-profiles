@@ -1,0 +1,23 @@
+meta {
+  name: download a preset's file (counted)
+  type: http
+  seq: 28
+}
+
+get {
+  url: {{baseUrl}}/api/v1/presets/{{filePresetId}}/download
+  body: none
+  auth: none
+}
+
+assert {
+  res.status: eq 200
+  res.headers["content-disposition"]: eq attachment; filename="prusaslicer-print.ini"
+}
+
+tests {
+  test("the redirect ends at the clean copy", function () {
+    expect(res.body).to.contain("layer_height = 0.2");
+    expect(res.body).to.not.contain("hunter2");
+  });
+}

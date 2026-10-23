@@ -215,6 +215,23 @@ export interface paths {
         patch: operations["updatePreset"];
         trace?: never;
     };
+    "/api/v1/presets/{id}/download": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Download a published preset's file (counts the download) */
+        get: operations["downloadPreset"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/me/presets": {
         parameters: {
             query?: never;
@@ -546,6 +563,8 @@ export interface components {
             license?: components["schemas"]["License"];
             /** @enum {string} */
             status?: "draft" | "published";
+            /** @description The ID of your own checked upload (completeUpload). Its format must suit the slicer: a PrusaSlicer or SuperSlicer file for those two, an OrcaSlicer format file for OrcaSlicer, Bambu Studio or Creality Print. */
+            file?: string;
         };
         /** @description Only the fields that are given change. */
         PresetUpdate: {
@@ -562,6 +581,8 @@ export interface components {
             license?: components["schemas"]["License"];
             /** @enum {string} */
             status?: "draft" | "published";
+            /** @description The ID of your own checked upload (completeUpload). Its format must suit the slicer: a PrusaSlicer or SuperSlicer file for those two, an OrcaSlicer format file for OrcaSlicer, Bambu Studio or Creality Print. */
+            file?: string;
         };
         Preset: {
             /** @description The public ID. The site's URL is /presets/<slug>-<id>. */
@@ -593,6 +614,27 @@ export interface components {
             updated_at: string;
             /** Format: date-time */
             published_at?: string;
+            file?: components["schemas"]["PresetFile"];
+            /** Format: int64 */
+            download_count: number;
+        };
+        PresetFile: {
+            /** @enum {string} */
+            slicer: "prusaslicer" | "superslicer" | "orcaslicer";
+            /** @enum {string} */
+            kind: "print" | "filament" | "printer" | "config";
+            slicer_version: string;
+            settings: components["schemas"]["KeySetting"][];
+            /**
+             * Format: uri
+             * @description The API route that counts the download and redirects to the file.
+             */
+            download_url: string;
+            /**
+             * Format: uri
+             * @description The file itself on the files origin.
+             */
+            file_url: string;
         };
         UploadCreate: {
             /** @enum {string} */
@@ -748,6 +790,7 @@ export type License = components['schemas']['License'];
 export type PresetCreate = components['schemas']['PresetCreate'];
 export type PresetUpdate = components['schemas']['PresetUpdate'];
 export type Preset = components['schemas']['Preset'];
+export type PresetFile = components['schemas']['PresetFile'];
 export type UploadCreate = components['schemas']['UploadCreate'];
 export type UploadTicket = components['schemas']['UploadTicket'];
 export type KeySetting = components['schemas']['KeySetting'];
@@ -1238,6 +1281,29 @@ export interface operations {
             default: components["responses"]["Problem"];
         };
     };
+    downloadPreset: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The download was counted; Location is the file on the files origin. */
+            302: {
+                headers: {
+                    Location?: string;
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            404: components["responses"]["Problem"];
+            default: components["responses"]["Problem"];
+        };
+    };
     listMyPresets: {
         parameters: {
             query?: never;
@@ -1645,6 +1711,8 @@ export const licenseValues: ReadonlyArray<FlattenedDeepRequired<components>["sch
 export const presetCreateStatusValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["PresetCreate"]["status"]> = ["draft", "published"];
 export const presetUpdateStatusValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["PresetUpdate"]["status"]> = ["draft", "published"];
 export const presetStatusValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["Preset"]["status"]> = ["draft", "published"];
+export const presetFileSlicerValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["PresetFile"]["slicer"]> = ["prusaslicer", "superslicer", "orcaslicer"];
+export const presetFileKindValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["PresetFile"]["kind"]> = ["print", "filament", "printer", "config"];
 export const uploadCreateKindValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["UploadCreate"]["kind"]> = ["preset_file"];
 export const uploadTicketMethodValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["UploadTicket"]["method"]> = ["PUT"];
 export const uploadStatusValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["Upload"]["status"]> = ["ready"];

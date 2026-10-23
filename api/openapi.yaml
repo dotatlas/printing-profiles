@@ -424,6 +424,26 @@ paths:
           $ref: "#/components/responses/Problem"
         default:
           $ref: "#/components/responses/Problem"
+  /api/v1/presets/{id}/download:
+    get:
+      operationId: downloadPreset
+      summary: Download a published preset's file (counts the download)
+      security: [] # Public: no sign-in needed.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, pattern: "^[a-z2-9]{8}$" }
+      responses:
+        "302":
+          description: The download was counted; Location is the file on the files origin.
+          headers:
+            Location:
+              schema: { type: string, format: uri }
+        "404":
+          $ref: "#/components/responses/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
   /api/v1/me/presets:
     get:
       operationId: listMyPresets
@@ -1005,6 +1025,12 @@ components:
         status:
           type: string
           enum: [draft, published]
+        file:
+          type: string
+          pattern: "^[a-z2-9]{16}$"
+          description: >-
+            The ID of your own checked upload (completeUpload). Its format must suit the slicer: a PrusaSlicer or
+            SuperSlicer file for those two, an OrcaSlicer format file for OrcaSlicer, Bambu Studio or Creality Print.
     PresetUpdate:
       type: object
       additionalProperties: false
@@ -1036,9 +1062,15 @@ components:
         status:
           type: string
           enum: [draft, published]
+        file:
+          type: string
+          pattern: "^[a-z2-9]{16}$"
+          description: >-
+            The ID of your own checked upload (completeUpload). Its format must suit the slicer: a PrusaSlicer or
+            SuperSlicer file for those two, an OrcaSlicer format file for OrcaSlicer, Bambu Studio or Creality Print.
     Preset:
       type: object
-      required: [id, slug, title, author, printer, material, nozzle_mm, slicer, slicer_version, license, status, created_at, updated_at]
+      required: [id, slug, title, author, printer, material, nozzle_mm, slicer, slicer_version, license, status, created_at, updated_at, download_count]
       properties:
         id:
           type: string
@@ -1092,6 +1124,23 @@ components:
         published_at:
           type: string
           format: date-time
+        file:
+          $ref: "#/components/schemas/PresetFile"
+        download_count:
+          type: integer
+          format: int64
+    PresetFile:
+      type: object
+      required: [slicer, kind, slicer_version, settings, download_url, file_url]
+      properties:
+        slicer: { type: string, enum: [prusaslicer, superslicer, orcaslicer] }
+        kind: { type: string, enum: [print, filament, printer, config] }
+        slicer_version: { type: string }
+        settings:
+          type: array
+          items: { $ref: "#/components/schemas/KeySetting" }
+        download_url: { type: string, format: uri, description: The API route that counts the download and redirects to the file. }
+        file_url: { type: string, format: uri, description: The file itself on the files origin. }
     UploadCreate:
       type: object
       required: [kind, size]

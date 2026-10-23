@@ -51,6 +51,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /api/v1/presets/{id}", s.handleGetPreset)
 	mux.HandleFunc("PATCH /api/v1/presets/{id}", s.handleUpdatePreset)
 	mux.HandleFunc("DELETE /api/v1/presets/{id}", s.handleDeletePreset)
+	mux.HandleFunc("GET /api/v1/presets/{id}/download", s.handlePresetDownload)
 	mux.HandleFunc("POST /api/v1/uploads", s.handleCreateUpload)
 	mux.HandleFunc("POST /api/v1/uploads/{id}/complete", s.handleCompleteUpload)
 	mux.HandleFunc("POST /api/v1/auth/signout", s.handleSignOut)

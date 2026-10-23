@@ -28,6 +28,7 @@ const preset: Preset = {
   status: "draft",
   created_at: "2026-10-20T10:00:00Z",
   updated_at: "2026-10-20T10:00:00Z",
+  download_count: 0,
 };
 const catalog = { printers: [], materials: [], slicers: [] };
 

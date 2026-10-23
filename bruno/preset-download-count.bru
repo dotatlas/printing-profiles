@@ -1,0 +1,16 @@
+meta {
+  name: the download was counted
+  type: http
+  seq: 29
+}
+
+get {
+  url: {{baseUrl}}/api/v1/presets/{{filePresetId}}
+  body: none
+  auth: none
+}
+
+assert {
+  res.status: eq 200
+  res.body.download_count: eq 1
+}

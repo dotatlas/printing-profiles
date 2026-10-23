@@ -12,11 +12,11 @@ SELECT id FROM slicers WHERE slug = sqlc.arg(slug);
 
 -- name: CreatePreset :exec
 INSERT INTO presets (public_id, author_id, title, slug, description, printer_id, material_id, nozzle_mm, slicer_id,
-                     slicer_version, license, status, published_at)
+                     slicer_version, license, status, published_at, file_upload_id)
 VALUES (sqlc.arg(public_id), sqlc.arg(author_id), sqlc.arg(title), sqlc.arg(slug), sqlc.arg(description),
         sqlc.arg(printer_id), sqlc.arg(material_id), sqlc.arg(nozzle_mm)::float8::numeric(3, 2), sqlc.arg(slicer_id),
         sqlc.arg(slicer_version), sqlc.arg(license), sqlc.arg(status),
-        CASE WHEN sqlc.arg(status)::text = 'published' THEN now() END);
+        CASE WHEN sqlc.arg(status)::text = 'published' THEN now() END, sqlc.narg(file_upload_id));
 
 -- name: GetPreset :one
 -- Deleted and hidden presets look like missing ones. The handler shows a draft only to its author.
@@ -56,6 +56,7 @@ UPDATE presets SET
     slicer_id      = coalesce(sqlc.narg(slicer_id), slicer_id),
     slicer_version = coalesce(sqlc.narg(slicer_version), slicer_version),
     license        = coalesce(sqlc.narg(license), license),
+    file_upload_id = coalesce(sqlc.narg(file_upload_id), file_upload_id),
     status         = coalesce(sqlc.narg(status), status),
     published_at   = CASE WHEN coalesce(sqlc.narg(status), status) = 'published' THEN coalesce(published_at, now()) ELSE published_at END,
     updated_at     = now()
@@ -65,3 +66,12 @@ RETURNING public_id;
 -- name: DeletePreset :execrows
 UPDATE presets SET deleted_at = now()
 WHERE public_id = sqlc.arg(public_id) AND author_id = sqlc.arg(author_id) AND deleted_at IS NULL;
+
+-- name: ReadyUpload :one
+-- A preset can take only its author's own checked preset file.
+SELECT id, slicer FROM uploads
+WHERE public_id = sqlc.arg(public_id) AND owner_id = sqlc.arg(owner_id) AND status = 'ready' AND kind = 'preset_file';
+
+-- name: CountDownload :exec
+-- shortcut: counts every request, so a script can raise the count; count once per IP and day with the moderation work.
+UPDATE presets SET download_count = download_count + 1 WHERE id = sqlc.arg(id);

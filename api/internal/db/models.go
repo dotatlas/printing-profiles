@@ -76,6 +76,8 @@ type Preset struct {
 	UpdatedAt     time.Time
 	PublishedAt   pgtype.Timestamptz
 	DeletedAt     pgtype.Timestamptz
+	FileUploadID  pgtype.Int8
+	DownloadCount int64
 }
 
 type PresetView struct {
@@ -106,6 +108,12 @@ type PresetView struct {
 	UpdatedAt           time.Time
 	PublishedAt         pgtype.Timestamptz
 	DeletedAt           pgtype.Timestamptz
+	FileKey             string
+	FileSlicer          string
+	FileKind            string
+	FileSlicerVersion   string
+	FileSettings        []byte
+	DownloadCount       int64
 }
 
 type Printer struct {

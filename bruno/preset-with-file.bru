@@ -1,0 +1,32 @@
+meta {
+  name: make a preset with the checked file
+  type: http
+  seq: 27
+}
+
+post {
+  url: {{baseUrl}}/api/v1/presets
+  body: json
+  auth: none
+}
+
+headers {
+  Cookie: __Host-session={{session}}
+  Origin: {{siteOrigin}}
+}
+
+body:json {
+  {"title": "Prusament PLA with the file", "printer": "prusa-research-mk4s", "material": "prusa-research-prusament-pla", "slicer": "prusaslicer", "nozzle_mm": 0.4, "status": "published", "file": "{{uploadId}}"}
+}
+
+script:post-response {
+  bru.setVar("filePresetId", res.body.id);
+}
+
+assert {
+  res.status: eq 201
+  res.body.file.slicer: eq prusaslicer
+  res.body.file.kind: eq print
+  res.body.file.settings[0].id: eq layer_height
+  res.body.download_count: eq 0
+}
