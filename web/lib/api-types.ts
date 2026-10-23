@@ -343,6 +343,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/auth/signout-others": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** End every session of the signed-in user except this one */
+        post: operations["signOutOthers"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/auth/fake/start": {
         parameters: {
             query?: never;
@@ -1273,6 +1290,32 @@ export interface operations {
             400: components["responses"]["Problem"];
             403: components["responses"]["Problem"];
             429: components["responses"]["Problem"];
+            default: components["responses"]["Problem"];
+        };
+    };
+    signOutOthers: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The other sessions are ended. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @description How many sessions ended. */
+                        signed_out: number;
+                    };
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
             default: components["responses"]["Problem"];
         };
     };

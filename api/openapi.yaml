@@ -615,6 +615,29 @@ paths:
           $ref: "#/components/responses/Problem"
         default:
           $ref: "#/components/responses/Problem"
+  /api/v1/auth/signout-others:
+    post:
+      operationId: signOutOthers
+      summary: End every session of the signed-in user except this one
+      security: [{session: []}]
+      responses:
+        "200":
+          description: The other sessions are ended.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [signed_out]
+                properties:
+                  signed_out:
+                    type: integer
+                    description: How many sessions ended.
+        "401":
+          $ref: "#/components/responses/Problem"
+        "403":
+          $ref: "#/components/responses/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
   /api/v1/auth/fake/start:
     get:
       operationId: fakeSignIn

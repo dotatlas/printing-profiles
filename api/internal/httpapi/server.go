@@ -49,6 +49,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("DELETE /api/v1/presets/{id}", s.handleDeletePreset)
 	mux.HandleFunc("POST /api/v1/auth/signout", s.handleSignOut)
 	mux.HandleFunc("POST /api/v1/auth/signout-all", s.handleSignOutAll)
+	mux.HandleFunc("POST /api/v1/auth/signout-others", s.handleSignOutOthers)
 	mux.HandleFunc("GET /api/v1/auth/{provider}/start", s.handleOAuthStart)
 	mux.HandleFunc("GET /api/v1/auth/{provider}/callback", s.handleOAuthCallback)
 	mux.HandleFunc("POST /api/v1/auth/email/start", s.handleEmailStart)

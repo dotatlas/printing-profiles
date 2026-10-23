@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -149,6 +150,33 @@ func TestSignOutEndsOnlyThisSessionAndSignOutAllEndsEvery(t *testing.T) {
 	serve(s, withSession(http.MethodPost, "/api/v1/auth/signout-all", b))
 	if serve(s, withSession(http.MethodGet, "/api/v1/me", b)).Code != http.StatusUnauthorized || serve(s, withSession(http.MethodGet, "/api/v1/me", c)).Code != http.StatusUnauthorized {
 		t.Error("signout-all must end every session of the user")
+	}
+}
+
+func TestSignOutOthersKeepsOnlyThisSession(t *testing.T) {
+	s, _ := newAuthServer(t)
+	here, phone, laptop := signInAs(t, s, "alice"), signInAs(t, s, "alice"), signInAs(t, s, "alice")
+	bob := signInAs(t, s, "bob")
+
+	rec := serve(s, withSession(http.MethodPost, "/api/v1/auth/signout-others", here))
+	if rec.Code != http.StatusOK || strings.TrimSpace(rec.Body.String()) != `{"signed_out":2}` {
+		t.Fatalf("status %d, body %s, want 200 with 2 signed out", rec.Code, rec.Body.String())
+	}
+	if serve(s, withSession(http.MethodGet, "/api/v1/me", here)).Code != http.StatusOK {
+		t.Error("this session must stay signed in")
+	}
+	for name, token := range map[string]string{"phone": phone, "laptop": laptop} {
+		if serve(s, withSession(http.MethodGet, "/api/v1/me", token)).Code != http.StatusUnauthorized {
+			t.Errorf("the %s session must be signed out", name)
+		}
+	}
+	if serve(s, withSession(http.MethodGet, "/api/v1/me", bob)).Code != http.StatusOK {
+		t.Error("another user's session must not change")
+	}
+	signedOut := httptest.NewRequest(http.MethodPost, "/api/v1/auth/signout-others", nil)
+	signedOut.Header.Set("Origin", "http://localhost:3000")
+	if code := serve(s, signedOut).Code; code != http.StatusUnauthorized {
+		t.Errorf("signed out: status %d, want 401", code)
 	}
 }
 

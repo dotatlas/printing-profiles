@@ -46,6 +46,9 @@ DELETE FROM sessions WHERE id = sqlc.arg(id) AND user_id = sqlc.arg(user_id);
 -- name: DeleteUserSessions :exec
 DELETE FROM sessions WHERE user_id = sqlc.arg(user_id);
 
+-- name: DeleteOtherSessions :execrows
+DELETE FROM sessions WHERE user_id = sqlc.arg(user_id) AND id <> sqlc.arg(keep_id);
+
 -- name: CreateOAuthFlow :exec
 INSERT INTO oauth_flows (state_hash, provider, verifier, return_path, link_user_id, expires_at)
 VALUES (sqlc.arg(state_hash), sqlc.arg(provider), sqlc.arg(verifier), sqlc.arg(return_path),

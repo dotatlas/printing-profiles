@@ -171,6 +171,23 @@ func (q *Queries) DeleteOldRateLimits(ctx context.Context) error {
 	return err
 }
 
+const deleteOtherSessions = `-- name: DeleteOtherSessions :execrows
+DELETE FROM sessions WHERE user_id = $1 AND id <> $2
+`
+
+type DeleteOtherSessionsParams struct {
+	UserID int64
+	KeepID int64
+}
+
+func (q *Queries) DeleteOtherSessions(ctx context.Context, arg DeleteOtherSessionsParams) (int64, error) {
+	result, err := q.db.Exec(ctx, deleteOtherSessions, arg.UserID, arg.KeepID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
 const deleteSession = `-- name: DeleteSession :execrows
 DELETE FROM sessions WHERE id = $1 AND user_id = $2
 `

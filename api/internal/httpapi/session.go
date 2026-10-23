@@ -162,6 +162,21 @@ func (s *Server) handleSignOutAll(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
+// handleSignOutOthers ends every session of the signed-in user except this one, and says how many it ended.
+// The router calls it for POST /api/v1/auth/signout-others.
+func (s *Server) handleSignOutOthers(w http.ResponseWriter, r *http.Request) {
+	u, ok := requireUser(w, r)
+	if !ok {
+		return
+	}
+	n, err := s.DB.DeleteOtherSessions(r.Context(), db.DeleteOtherSessionsParams{UserID: u.UserID, KeepID: u.SessionID})
+	if err != nil {
+		s.fail(w, r, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]int64{"signed_out": n})
+}
+
 // sessionJSON is one session in the answer of handleSessions.
 type sessionJSON struct {
 	ID         int64     `json:"id"`
