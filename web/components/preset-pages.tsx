@@ -112,7 +112,6 @@ function usePresetForAuthor(id: string, handle: string | null): Loaded {
 // EditPreset is the body of /presets/<slug>-<id>/edit: the form with the preset, then the delete section. Only the
 // author gets the form; anyone else reads that the preset is not theirs.
 export function EditPreset({ catalog, id }: { catalog: Catalog; id: string }) {
-  const router = useRouter();
   const pathname = usePathname();
   const me = useMember(pathname);
   const loaded = usePresetForAuthor(id, me?.handle ?? null);
@@ -140,7 +139,8 @@ export function EditPreset({ catalog, id }: { catalog: Catalog; id: string }) {
           catalog={catalog}
           preset={preset}
           cancelHref={presetPath(preset)}
-          onSaved={(p) => router.push(savedPath(p, preset.status))}
+          // A full page load: Next keeps the preset page from the visit before, with its old data and state.
+          onSaved={(p) => location.assign(savedPath(p, preset.status))}
         />
       </div>
       <DeleteSection id={preset.id} />
@@ -211,7 +211,6 @@ export function AuthorActions({ preset }: { preset: Preset }) {
 
 // PublishDraft publishes a draft from its own page in one step and opens the published page.
 function PublishDraft({ preset }: { preset: Preset }) {
-  const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [failed, setFailed] = useState(false);
 
@@ -219,7 +218,9 @@ function PublishDraft({ preset }: { preset: Preset }) {
     setBusy(true);
     setFailed(false);
     try {
-      router.push(savedPath(await updatePreset(preset.id, { status: "published" }), "draft"));
+      const published = await updatePreset(preset.id, { status: "published" });
+      // A full page load: this is the not-found page of the same path, and a client navigation would keep it.
+      location.assign(savedPath(published, "draft"));
     } catch {
       setFailed(true);
       setBusy(false);
