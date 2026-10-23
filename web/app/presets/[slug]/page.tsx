@@ -2,8 +2,9 @@ import type { Metadata } from "next";
 import { notFound, permanentRedirect } from "next/navigation";
 import { cache, Suspense } from "react";
 import { AuthorActions, SavedNotice } from "../../../components/preset-pages";
+import { Reviews } from "../../../components/reviews";
 import { PresetView } from "../../../components/preset-view";
-import { getPreset, materialLabel, nozzleLabel, parsePresetParam, presetPath, printerLabel } from "../../../lib/presets";
+import { getPreset, getReviews, materialLabel, nozzleLabel, parsePresetParam, presetPath, printerLabel } from "../../../lib/presets";
 
 // The page waits for the API before it answers. Link-preview bots then get a real 404 or 308; browsers get the page
 // shell at once, then the not-found page (marked noindex) or the redirect in the browser.
@@ -31,7 +32,9 @@ export async function generateMetadata({ params }: PageProps<"/presets/[slug]">)
 // data, so the page is the same for every visitor.
 export default async function PresetPage({ params }: PageProps<"/presets/[slug]">) {
   const { slug } = await params;
-  const found = await presetFor(slug);
+  // The reviews come in parallel with the preset; the ID in the path is enough to ask for them.
+  const id = parsePresetParam(slug)?.id;
+  const [found, reviews] = await Promise.all([presetFor(slug), id ? getReviews(id) : null]);
   if (!found?.preset) notFound();
   const { parsed, preset } = found;
   // A link with an old or a missing slug goes to the current path, so each preset has one URL.
@@ -41,6 +44,7 @@ export default async function PresetPage({ params }: PageProps<"/presets/[slug]"
     <PresetView
       preset={preset}
       actions={<AuthorActions preset={preset} />}
+      community={<Reviews presetId={preset.id} authorHandle={preset.author.handle} initial={reviews?.items ?? []} />}
       // The notice reads the address, so it waits inside Suspense; the page HTML stays the same for everyone.
       notice={
         <Suspense>

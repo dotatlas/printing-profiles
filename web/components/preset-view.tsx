@@ -3,11 +3,22 @@ import type { Preset } from "../lib/api-types";
 import { formatDate } from "../lib/format";
 import { authorName } from "../lib/presets";
 import { fileExt, fileKind, KeySettings, PresetDetails, PresetFacts, slicerName } from "./preset-facts";
+import { RatingSummary } from "./stars";
 
-// PresetView shows one preset: the title, the author, the facts as tags, the description and the details. The
-// preset page renders it on the server; the draft view renders it in the browser. actions holds the author's
-// buttons, and notice a line above the title.
-export function PresetView({ preset, actions, notice }: { preset: Preset; actions?: ReactNode; notice?: ReactNode }) {
+// PresetView shows one preset: the title, the author, the rating, the facts as tags, the description and the
+// details. The preset page renders it on the server; the draft view renders it in the browser. actions holds the
+// author's buttons, notice a line above the title, and community the reviews and comments under the description.
+export function PresetView({
+  preset,
+  actions,
+  notice,
+  community,
+}: {
+  preset: Preset;
+  actions?: ReactNode;
+  notice?: ReactNode;
+  community?: ReactNode;
+}) {
   return (
     <article>
       {/* empty:hidden drops the space when the notice renders nothing, as SavedNotice does without a save. */}
@@ -19,6 +30,11 @@ export function PresetView({ preset, actions, notice }: { preset: Preset; action
             by <span className="text-ink">{authorName(preset.author)}</span> ·{" "}
             {formatDate(preset.published_at ?? preset.created_at)}
           </p>
+          {preset.status === "published" && (
+            <div className="mt-2">
+              <RatingSummary rating={preset.rating} />
+            </div>
+          )}
         </div>
         {actions}
       </header>
@@ -52,6 +68,7 @@ export function PresetView({ preset, actions, notice }: { preset: Preset; action
               <p className="mt-2 text-muted">The author did not write a description.</p>
             )}
           </section>
+          {community}
         </div>
         {/* The panel stays in view beside a long description. On a phone it comes first, so Download is near the top. */}
         <aside aria-label="Details" className="panel flex flex-col gap-4 self-start max-md:order-first md:sticky md:top-6">

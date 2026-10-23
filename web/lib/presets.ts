@@ -1,5 +1,5 @@
 import { apiURL } from "./api";
-import type { Preset, PresetPage, Problem } from "./api-types";
+import type { CommentPage, Preset, PresetPage, Problem, Profile, ReviewPage } from "./api-types";
 
 // browseFilters are the filters of the browse page, in the order of its columns and of its URLs.
 export const browseFilters = ["printer", "material", "nozzle", "slicer"] as const;
@@ -73,13 +73,32 @@ export function authorName(author: Preset["author"]): string {
   return author.display_name ? `${author.display_name} (@${author.handle})` : `@${author.handle}`;
 }
 
-// getPreset gets one preset from the API on the server, without cookies, so it sees only published presets.
-// It gives null when the API answers 404. The preset page calls it.
-export async function getPreset(id: string): Promise<Preset | null> {
-  const res = await fetch(new URL(`/api/v1/presets/${id}`, apiURL()), { signal: AbortSignal.timeout(10_000) });
+// getPublic reads public JSON from the API on the server, without cookies, or gives null when the API answers 404.
+// getPreset, the review and comment reads and getProfile use it.
+async function getPublic<T>(path: string, label: string): Promise<T | null> {
+  const res = await fetch(new URL(path, apiURL()), { signal: AbortSignal.timeout(10_000) });
   if (res.status === 404) return null;
-  if (!res.ok) throw new Error(`GET /api/v1/presets/{id}: status ${res.status}`);
-  return (await res.json()) as Preset;
+  if (!res.ok) throw new Error(`GET ${label}: status ${res.status}`);
+  return (await res.json()) as T;
+}
+
+// getPreset gets one published preset, or null. The preset page calls it; the server never sees drafts.
+export function getPreset(id: string): Promise<Preset | null> {
+  return getPublic<Preset>(`/api/v1/presets/${id}`, "/api/v1/presets/{id}");
+}
+
+// getReviews and getComments get the first page of a published preset's reviews and comments for the preset page.
+export function getReviews(id: string): Promise<ReviewPage | null> {
+  return getPublic<ReviewPage>(`/api/v1/presets/${id}/reviews`, "/api/v1/presets/{id}/reviews");
+}
+
+export function getComments(id: string): Promise<CommentPage | null> {
+  return getPublic<CommentPage>(`/api/v1/presets/${id}/comments`, "/api/v1/presets/{id}/comments");
+}
+
+// getProfile gets a member's public profile, or null for an unknown handle. The profile page calls it.
+export function getProfile(handle: string): Promise<Profile | null> {
+  return getPublic<Profile>(`/api/v1/users/${encodeURIComponent(handle)}`, "/api/v1/users/{handle}");
 }
 
 export type BrowseResult = { ok: true; page: PresetPage } | { ok: false; problem: string };

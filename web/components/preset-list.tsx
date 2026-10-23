@@ -12,6 +12,7 @@ import {
   presetPath,
   printerLabel,
 } from "../lib/presets";
+import { RatingInline } from "./stars";
 
 export type Catalog = { printers: Printer[]; materials: Material[]; slicers: Slicer[] };
 
@@ -173,6 +174,12 @@ export function PresetList({ items, query = {} }: { items: Preset[]; query?: Bro
             <p className="mt-0.5 text-[13px] text-muted wrap-anywhere">
               by {preset.author.display_name || `@${preset.author.handle}`} ·{" "}
               {formatDate(preset.published_at ?? preset.created_at)}
+              {preset.rating && (
+                <>
+                  {" · "}
+                  <RatingInline rating={preset.rating} />
+                </>
+              )}
             </p>
           </div>
           <dl className="mt-1.5 grid grid-cols-2 gap-x-3 gap-y-0.5 text-[13px] md:grid-cols-4 lg:contents lg:text-sm">
