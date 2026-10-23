@@ -8,11 +8,12 @@ export const metadata: Metadata = { title: "Settings", robots: { index: false } 
 // user's own data, so they render in the browser.
 export default function SettingsPage() {
   return (
-    <>
+    // The frame is wide for the preset lists; forms read better at this width.
+    <div className="max-w-3xl">
       <h1 className="text-2xl font-semibold tracking-tight">Settings</h1>
       <Suspense>
         <Settings />
       </Suspense>
-    </>
+    </div>
   );
 }

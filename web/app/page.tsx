@@ -1,4 +1,5 @@
 import { connection } from "next/server";
+import Link from "next/link";
 import { Suspense } from "react";
 import { Catalog, CatalogSkeleton } from "../components/catalog";
 import { listFirst } from "../lib/api";
@@ -22,6 +23,11 @@ export default function HomePage() {
       <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">Slicer presets for your printer and filament</h1>
       <p className="mt-3 max-w-prose text-muted">
         Find settings that print well on your exact printer, with your filament and your slicer.
+      </p>
+      <p className="mt-6">
+        <Link href="/presets" className="btn btn-primary">
+          Browse presets
+        </Link>
       </p>
       <Suspense fallback={<CatalogSkeleton />}>
         <CatalogFromAPI />

@@ -6,8 +6,8 @@ type ListPath = "/api/v1/printers" | "/api/v1/materials" | "/api/v1/slicers";
 // Items is the item type of a list route, from the API contract.
 type Items<P extends ListPath> = paths[P]["get"]["responses"][200]["content"]["application/json"]["items"];
 
-// apiURL gives the base URL of the API for listFirst. In production, the API_URL variable must be set.
-function apiURL(): string {
+// apiURL gives the base URL of the API for the server reads (listFirst, lib/presets). In production, API_URL must be set.
+export function apiURL(): string {
   const url = process.env.API_URL;
   if (url) return url;
   if (process.env.NODE_ENV === "production") throw new Error("API_URL must be set in production");

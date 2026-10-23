@@ -122,6 +122,12 @@
   .field[aria-invalid="true"] {
     border-color: var(--color-danger);
   }
+  /* A filter in use takes the accent tint, the same as the tags on a preset page. */
+  .filter-select[data-active="true"] {
+    border-color: var(--color-accent);
+    background-color: var(--color-accent-tint);
+    color: var(--color-accent-ink);
+  }
   .panel {
     border-radius: 1rem;
     background-color: var(--color-raised);
