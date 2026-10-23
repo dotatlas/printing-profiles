@@ -49,7 +49,7 @@ test("a row links to the preset and names each fact for screen readers", () => {
   );
   expect(row.textContent).toContain("PrinterBambu Lab P1S");
   expect(row.textContent).toContain("FilamentBambu Lab PLA Basic");
-  expect(row.textContent).toContain("Nozzle0.4 mm");
+  expect(row.textContent).toContain("Nozzle0.4\u00a0mm");
   expect(row.textContent).toContain("SlicerOrcaSlicer 2.3.0");
   expect(row.textContent).toContain("by Mia Maker · 20 Oct 2026");
 });
@@ -85,7 +85,7 @@ test("with no match, each filter in use has a link that removes only that filter
     "href",
     expect.stringMatching(/\/presets\?nozzle=0\.6$/),
   );
-  expect(screen.getByRole("link", { name: "Remove 0.6 mm" })).toHaveProperty(
+  expect(screen.getByRole("link", { name: "Remove 0.6\u00a0mm" })).toHaveProperty(
     "href",
     expect.stringMatching(/\/presets\?printer=bambu-lab-p1s$/),
   );

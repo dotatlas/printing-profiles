@@ -35,7 +35,7 @@ test("each fact of a preset links to the browse page for that fact, and one link
     "href",
     expect.stringMatching(/\/presets\?printer=bambu-lab-p1s$/),
   );
-  expect(screen.getByRole("link", { name: "More presets for the Nozzle 0.4 mm" })).toHaveProperty(
+  expect(screen.getByRole("link", { name: "More presets for the Nozzle 0.4\u00a0mm" })).toHaveProperty(
     "href",
     expect.stringMatching(/\/presets\?nozzle=0\.4$/),
   );

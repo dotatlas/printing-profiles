@@ -52,9 +52,10 @@ export function browsePath(query: BrowseQuery, page?: { cursor: string }): strin
   return text ? `/presets?${text}` : "/presets";
 }
 
-// nozzleLabel writes a nozzle diameter like a slicer does: "0.4 mm", "0.25 mm", "1.0 mm".
+// nozzleLabel writes a nozzle diameter like a slicer does: "0.4 mm", "0.25 mm", "1.0 mm". A no-break space keeps
+// the number and the unit on one line.
 export function nozzleLabel(mm: number): string {
-  return `${Number.isInteger(mm * 10) ? mm.toFixed(1) : mm.toFixed(2)} mm`;
+  return `${Number.isInteger(mm * 10) ? mm.toFixed(1) : mm.toFixed(2)}\u00a0mm`;
 }
 
 // printerLabel and materialLabel give the full names that the rows and the preset page show.

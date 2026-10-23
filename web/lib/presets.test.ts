@@ -71,8 +71,8 @@ test("browsePath writes the filters in a fixed order and leaves out the empty on
   expect(browsePath({ printer: "a b" }, { cursor: "x=" })).toBe("/presets?printer=a+b&cursor=x%3D");
 });
 
-test("nozzleLabel writes a nozzle the way a slicer shows it", () => {
-  expect([0.2, 0.25, 0.4, 1, 1.2].map(nozzleLabel)).toEqual(["0.2 mm", "0.25 mm", "0.4 mm", "1.0 mm", "1.2 mm"]);
+test("nozzleLabel writes a nozzle the way a slicer shows it, with the unit kept on the same line", () => {
+  expect([0.2, 0.25, 0.4, 1, 1.2].map(nozzleLabel)).toEqual(["0.2\u00a0mm", "0.25\u00a0mm", "0.4\u00a0mm", "1.0\u00a0mm", "1.2\u00a0mm"]);
 });
 
 test("authorName gives the display name with the handle, or the handle alone when there is no name", () => {
