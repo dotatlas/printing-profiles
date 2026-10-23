@@ -77,10 +77,11 @@ func serve(log *slog.Logger) error {
 	defer stop()
 
 	log.Info("listening", "port", cfg.Port, "env", cfg.Env, "site_origin", cfg.SiteOrigin)
-	srv := &httpapi.Server{Log: log, Cfg: cfg, DB: db.New(pool), Mail: mailSender(cfg, log)}
-	if srv.Uploads, srv.Files, err = buckets(cfg); err != nil {
+	uploads, files, err := buckets(&cfg)
+	if err != nil {
 		return err
 	}
+	srv := &httpapi.Server{Log: log, Cfg: cfg, DB: db.New(pool), Mail: mailSender(cfg, log), Uploads: uploads, Files: files}
 	return httpapi.Serve(ctx, ln, srv.Handler())
 }
 
@@ -111,11 +112,16 @@ func migrate(log *slog.Logger) error {
 	return nil
 }
 
-// buckets gives the uploads and the files bucket from the R2 settings, or none: then the upload routes answer 503.
+// buckets gives the uploads and the files bucket from the R2 settings. Without R2, dev keeps the files in memory
+// behind dev-only API routes (and sets FilesOrigin to them), and prod gets none: its upload routes answer 503.
 // serve calls it.
-func buckets(cfg config.Config) (httpapi.FileStore, httpapi.FileStore, error) {
+func buckets(cfg *config.Config) (httpapi.FileStore, httpapi.FileStore, error) {
 	r := cfg.R2
-	if r.Endpoint == "" {
+	switch {
+	case r.Endpoint == "" && cfg.Env == "dev":
+		cfg.R2.FilesOrigin = cfg.APIOrigin + "/api/v1/dev/files"
+		return &storage.Memory{PutURL: cfg.APIOrigin + "/api/v1/dev/uploads/"}, &storage.Memory{}, nil
+	case r.Endpoint == "":
 		return nil, nil, nil
 	}
 	uploads, err := storage.NewBucket(r.Endpoint, r.UploadsBucket, r.AccessKeyID, r.SecretAccessKey)

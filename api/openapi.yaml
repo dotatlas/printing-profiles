@@ -750,6 +750,50 @@ paths:
           $ref: "#/components/responses/Problem"
         default:
           $ref: "#/components/responses/Problem"
+  /api/v1/dev/uploads/{key}:
+    put:
+      operationId: devUpload
+      summary: Receive an uploaded file into memory (development only)
+      description: >-
+        This route exists only when ENV is dev and no R2 is set up. It stands in for the presigned R2 URL that
+        createUpload gives, and checks the same things: the signed size and the signed type.
+      security: [] # The upload URL itself is the permission, as with R2.
+      parameters:
+        - { name: key, in: path, required: true, schema: { type: string } }
+        - { name: size, in: query, required: true, schema: { type: integer } }
+        - { name: type, in: query, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/octet-stream:
+            schema: { type: string, format: binary }
+      responses:
+        "200":
+          description: Stored.
+        "403":
+          $ref: "#/components/responses/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
+  /api/v1/dev/files/{key}:
+    get:
+      operationId: devFile
+      summary: Download a checked file from memory (development only)
+      description: >-
+        This route exists only when ENV is dev and no R2 is set up. It stands in for the files origin, with the same
+        headers: the stored type, Content-Disposition attachment, nosniff and a sandbox CSP. The key can hold slashes.
+      security: []
+      parameters:
+        - { name: key, in: path, required: true, schema: { type: string } }
+      responses:
+        "200":
+          description: The file.
+          content:
+            application/octet-stream:
+              schema: { type: string, format: binary }
+        "404":
+          $ref: "#/components/responses/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
 components:
   securitySchemes:
     session:

@@ -420,6 +420,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/dev/uploads/{key}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Receive an uploaded file into memory (development only)
+         * @description This route exists only when ENV is dev and no R2 is set up. It stands in for the presigned R2 URL that createUpload gives, and checks the same things: the signed size and the signed type.
+         */
+        put: operations["devUpload"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/dev/files/{key}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Download a checked file from memory (development only)
+         * @description This route exists only when ENV is dev and no R2 is set up. It stands in for the files origin, with the same headers: the stored type, Content-Disposition attachment, nosniff and a sandbox CSP. The key can hold slashes.
+         */
+        get: operations["devFile"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -1532,6 +1572,59 @@ export interface operations {
                 content?: never;
             };
             400: components["responses"]["Problem"];
+            default: components["responses"]["Problem"];
+        };
+    };
+    devUpload: {
+        parameters: {
+            query: {
+                size: number;
+                type: string;
+            };
+            header?: never;
+            path: {
+                key: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/octet-stream": string;
+            };
+        };
+        responses: {
+            /** @description Stored. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            403: components["responses"]["Problem"];
+            default: components["responses"]["Problem"];
+        };
+    };
+    devFile: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                key: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The file. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/octet-stream": string;
+                };
+            };
+            404: components["responses"]["Problem"];
             default: components["responses"]["Problem"];
         };
     };

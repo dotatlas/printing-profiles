@@ -23,7 +23,8 @@ func (s *Server) checkWrites(mux *http.ServeMux, next http.Handler) http.Handler
 			next.ServeHTTP(w, r)
 			return
 		}
-		if _, pattern := mux.Handler(r); pattern == "" {
+		_, pattern := mux.Handler(r)
+		if pattern == "" {
 			next.ServeHTTP(w, r)
 			return
 		}
@@ -31,7 +32,8 @@ func (s *Server) checkWrites(mux *http.ServeMux, next http.Handler) http.Handler
 			writeProblem(w, http.StatusForbidden, "this request must come from the site")
 			return
 		}
-		if r.ContentLength != 0 {
+		// The dev upload route takes a file body, as the R2 URL that it stands in for does.
+		if r.ContentLength != 0 && pattern != devUploadPattern {
 			mt, _, err := mime.ParseMediaType(r.Header.Get("Content-Type"))
 			if err != nil || mt != "application/json" {
 				writeProblem(w, http.StatusUnsupportedMediaType, "send the body as application/json")

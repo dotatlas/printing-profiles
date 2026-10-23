@@ -129,7 +129,11 @@ func (s *Server) cors(next http.Handler) http.Handler {
 		h.Set("Access-Control-Allow-Credentials", "true")
 		// A preflight asks which methods and headers are allowed, before the browser sends the real request.
 		if r.Method == http.MethodOptions && r.Header.Get("Access-Control-Request-Method") != "" {
-			h.Set("Access-Control-Allow-Methods", "GET, POST, PATCH, DELETE")
+			methods := "GET, POST, PATCH, DELETE"
+			if s.Cfg.Env == "dev" {
+				methods += ", PUT" // the dev route that stands in for the R2 upload URL
+			}
+			h.Set("Access-Control-Allow-Methods", methods)
 			h.Set("Access-Control-Allow-Headers", "Content-Type")
 			h.Set("Access-Control-Max-Age", "600")
 			w.WriteHeader(http.StatusNoContent)

@@ -1,0 +1,24 @@
+meta {
+  name: download the clean copy (dev storage)
+  type: http
+  seq: 26
+}
+
+get {
+  url: {{fileUrl}}
+  body: none
+  auth: none
+}
+
+assert {
+  res.status: eq 200
+  res.headers["content-disposition"]: eq attachment; filename="prusaslicer-print.ini"
+  res.headers["content-security-policy"]: eq sandbox
+}
+
+tests {
+  test("the password is gone and the settings stay", function () {
+    expect(res.body).to.not.contain("hunter2");
+    expect(res.body).to.contain("layer_height = 0.2");
+  });
+}

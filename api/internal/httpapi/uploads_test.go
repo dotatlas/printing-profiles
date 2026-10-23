@@ -1,8 +1,11 @@
 package httpapi
 
 import (
+	"bytes"
 	"encoding/json"
 	"net/http"
+	"net/http/httptest"
+	"net/url"
 	"os"
 	"regexp"
 	"strconv"
@@ -153,5 +156,60 @@ func TestCompleteRejectsAFileThatIsNotAPresetOrNotTheSignedSize(t *testing.T) {
 	_ = uploads.Put(t.Context(), "u/"+small.ID, data, "application/octet-stream", "")
 	if rec := postJSON(s, "/api/v1/uploads/"+small.ID+"/complete", ``, token); rec.Code != http.StatusUnprocessableEntity {
 		t.Fatalf("a file larger than the signed size: status %d %s", rec.Code, rec.Body)
+	}
+}
+
+// putFile sends a file the way a browser sends it to the dev upload URL of a ticket.
+func putFile(s *Server, ticketURL string, body []byte, contentType string) *httptest.ResponseRecorder {
+	u, _ := url.Parse(ticketURL)
+	r := httptest.NewRequest(http.MethodPut, u.RequestURI(), bytes.NewReader(body))
+	r.Header.Set("Origin", "http://localhost:3000")
+	r.Header.Set("Content-Type", contentType)
+	return serve(s, r)
+}
+
+func TestDevStoresUploadsInMemoryWithTheSignedSizeAndType(t *testing.T) {
+	s, _, _ := newUploadServer(t)
+	s.Uploads.(*storage.Memory).PutURL = "http://localhost:8080/api/v1/dev/uploads/"
+	s.Cfg.R2.FilesOrigin = "http://localhost:8080/api/v1/dev/files"
+	token := member(t, s, "devuploader")
+	data := presetFixture(t, "orca-filament.json")
+	ticket := startUpload(t, s, token, len(data))
+
+	if rec := putFile(s, ticket.URL, data[:10], uploadType); rec.Code != http.StatusForbidden {
+		t.Errorf("another size: status %d, want 403", rec.Code)
+	}
+	if rec := putFile(s, ticket.URL, data, "application/json"); rec.Code != http.StatusForbidden {
+		t.Errorf("another type: status %d, want 403", rec.Code)
+	}
+	if rec := putFile(s, ticket.URL, data, uploadType); rec.Code != http.StatusOK {
+		t.Fatalf("upload: status %d %s", rec.Code, rec.Body)
+	}
+	rec := postJSON(s, "/api/v1/uploads/"+ticket.ID+"/complete", ``, token)
+	var got uploadJSON
+	if rec.Code != http.StatusOK || json.Unmarshal(rec.Body.Bytes(), &got) != nil {
+		t.Fatalf("complete: status %d %s", rec.Code, rec.Body)
+	}
+
+	// The dev files route serves the clean copy as a download that a browser never runs.
+	u, _ := url.Parse(got.FileURL)
+	file := serve(s, httptest.NewRequest(http.MethodGet, u.RequestURI(), nil))
+	h := file.Header()
+	if file.Code != http.StatusOK || h.Get("Content-Type") != "application/json" || h.Get("Content-Disposition") != `attachment; filename="orcaslicer-filament.json"` ||
+		h.Get("X-Content-Type-Options") != "nosniff" || h.Get("Content-Security-Policy") != "sandbox" {
+		t.Fatalf("file: status %d, headers %v", file.Code, h)
+	}
+}
+
+func TestTheDevFileRoutesDoNotExistInProd(t *testing.T) {
+	s, _, _ := newUploadServer(t)
+	s.Cfg.Env = "prod"
+	r := httptest.NewRequest(http.MethodPut, "/api/v1/dev/uploads/u%2Fabcdefghjkmnpqrs?size=1&type=application%2Foctet-stream", strings.NewReader("x"))
+	r.Header.Set("Origin", "http://localhost:3000")
+	if rec := serve(s, r); rec.Code != http.StatusNotFound {
+		t.Errorf("dev upload in prod: status %d, want 404", rec.Code)
+	}
+	if rec := serve(s, httptest.NewRequest(http.MethodGet, "/api/v1/dev/files/presets/x.ini", nil)); rec.Code != http.StatusNotFound {
+		t.Errorf("dev files in prod: status %d, want 404", rec.Code)
 	}
 }

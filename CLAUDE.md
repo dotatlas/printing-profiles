@@ -76,7 +76,7 @@ docker compose -f deploy/compose.yml config --quiet   # check the production sta
     - Find users by (provider, provider user ID), never by email.
     - Return paths go through `safeReturnPath`.
     - Every POST, PATCH and DELETE needs the site's `Origin` and a JSON body (`checkWrites`).
-    - The fake provider and the log mailer exist only with `ENV=dev`.
+    - The fake provider, the log mailer and the in-memory file store (with its upload and files routes) exist only with `ENV=dev`.
   - Never log tokens, session IDs or personal data.
   - Validate uploads by their content, never their file name.
 - **Deploy** (`deploy/`):

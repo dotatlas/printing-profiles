@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"io"
 	"net/http"
 	"regexp"
 	"strconv"
@@ -205,4 +206,53 @@ func (s *Server) reject(w http.ResponseWriter, r *http.Request, id int64, reason
 		return
 	}
 	writeProblem(w, http.StatusUnprocessableEntity, reason)
+}
+
+// devUploadPattern is the dev-only route that stands in for the R2 upload URL. checkWrites lets its file body in.
+const devUploadPattern = "PUT /api/v1/dev/uploads/{key}"
+
+// handleDevUpload stores a file in the in-memory uploads bucket of dev, with the same checks that R2 makes on a
+// presigned PUT: the signed size and the signed type. The router has it only in dev.
+func (s *Server) handleDevUpload(w http.ResponseWriter, r *http.Request) {
+	m, ok := s.Uploads.(*storage.Memory)
+	if !ok {
+		writeProblem(w, http.StatusNotFound, "no dev storage")
+		return
+	}
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		writeProblem(w, http.StatusRequestEntityTooLarge, "the file is too large")
+		return
+	}
+	q := r.URL.Query()
+	if q.Get("size") != strconv.Itoa(len(body)) || q.Get("type") != r.Header.Get("Content-Type") {
+		writeProblem(w, http.StatusForbidden, "the file is not the signed size and type")
+		return
+	}
+	if err := m.Put(r.Context(), r.PathValue("key"), body, q.Get("type"), ""); err != nil {
+		s.fail(w, r, err)
+		return
+	}
+	w.WriteHeader(http.StatusOK)
+}
+
+// handleDevFile serves a file from the in-memory files bucket of dev with the headers that the files origin adds
+// in production. The router has it only in dev.
+func (s *Server) handleDevFile(w http.ResponseWriter, r *http.Request) {
+	m, ok := s.Files.(*storage.Memory)
+	if !ok {
+		writeProblem(w, http.StatusNotFound, "no dev storage")
+		return
+	}
+	o, found := m.Object(r.PathValue("key"))
+	if !found {
+		writeProblem(w, http.StatusNotFound, "file not found")
+		return
+	}
+	h := w.Header()
+	h.Set("Content-Type", o.ContentType)
+	h.Set("Content-Disposition", o.Disposition)
+	h.Set("X-Content-Type-Options", "nosniff")
+	h.Set("Content-Security-Policy", "sandbox")
+	_, _ = w.Write(o.Body) // The status is already sent, so a write error cannot change the answer.
 }

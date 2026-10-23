@@ -1,0 +1,24 @@
+meta {
+  name: send the file to the upload URL (dev storage)
+  type: http
+  seq: 24
+}
+
+put {
+  url: {{uploadUrl}}
+  body: text
+  auth: none
+}
+
+headers {
+  Content-Type: application/octet-stream
+  Origin: {{siteOrigin}}
+}
+
+body:text {
+  {{presetText}}
+}
+
+assert {
+  res.status: eq 200
+}

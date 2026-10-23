@@ -63,6 +63,9 @@ func (s *Server) Handler() http.Handler {
 	if s.Cfg.Env == "dev" {
 		// The fake provider signs in without a password or a provider, so it must never exist in prod.
 		mux.HandleFunc("GET /api/v1/auth/fake/start", s.handleFakeSignIn)
+		// Without R2, dev keeps files in memory, and these routes stand in for the bucket URLs.
+		mux.HandleFunc(devUploadPattern, s.handleDevUpload)
+		mux.HandleFunc("GET /api/v1/dev/files/{key...}", s.handleDevFile)
 	}
 
 	// The last wrapper runs first. requestID is last, so every answer and log line has an ID.

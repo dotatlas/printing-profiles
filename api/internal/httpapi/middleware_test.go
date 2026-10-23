@@ -144,8 +144,14 @@ func TestCORSPreflightFromTheSite(t *testing.T) {
 	if rec.Code != http.StatusNoContent {
 		t.Fatalf("status = %d, want 204", rec.Code)
 	}
-	if got := rec.Header().Get("Access-Control-Allow-Methods"); got != "GET, POST, PATCH, DELETE" {
-		t.Errorf("Allow-Methods = %q", got)
+	// Dev allows PUT for its stand-in upload route; prod uploads go to R2, never to the API.
+	if got := rec.Header().Get("Access-Control-Allow-Methods"); got != "GET, POST, PATCH, DELETE, PUT" {
+		t.Errorf("dev Allow-Methods = %q", got)
+	}
+	prod := newTestServer()
+	prod.Cfg.Env = "prod"
+	if got := serve(prod, pre).Header().Get("Access-Control-Allow-Methods"); got != "GET, POST, PATCH, DELETE" {
+		t.Errorf("prod Allow-Methods = %q", got)
 	}
 	if got := rec.Header().Get("Access-Control-Allow-Headers"); got != "Content-Type" {
 		t.Errorf("Allow-Headers = %q", got)

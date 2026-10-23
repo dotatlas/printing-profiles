@@ -1,11 +1,11 @@
 meta {
-  name: complete an upload (no storage here)
+  name: complete an upload
   type: http
-  seq: 24
+  seq: 25
 }
 
 post {
-  url: {{baseUrl}}/api/v1/uploads/abcdefghjkmnpqrs/complete
+  url: {{baseUrl}}/api/v1/uploads/{{uploadId}}/complete
   body: none
   auth: none
 }
@@ -15,6 +15,14 @@ headers {
   Origin: {{siteOrigin}}
 }
 
+script:post-response {
+  bru.setVar("fileUrl", res.body.file_url);
+}
+
 assert {
-  res.status: eq 503
+  res.status: eq 200
+  res.body.status: eq ready
+  res.body.slicer: eq prusaslicer
+  res.body.kind: eq print
+  res.body.removed[0]: eq printhost_password
 }
