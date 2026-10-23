@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { notFound, permanentRedirect } from "next/navigation";
-import { cache } from "react";
-import { AuthorActions } from "../../../components/preset-pages";
+import { cache, Suspense } from "react";
+import { AuthorActions, SavedNotice } from "../../../components/preset-pages";
 import { PresetView } from "../../../components/preset-view";
 import { getPreset, materialLabel, nozzleLabel, parsePresetParam, presetPath, printerLabel } from "../../../lib/presets";
 
@@ -37,5 +37,16 @@ export default async function PresetPage({ params }: PageProps<"/presets/[slug]"
   // A link with an old or a missing slug goes to the current path, so each preset has one URL.
   if (parsed.slug !== preset.slug) permanentRedirect(presetPath(preset));
 
-  return <PresetView preset={preset} actions={<AuthorActions preset={preset} />} />;
+  return (
+    <PresetView
+      preset={preset}
+      actions={<AuthorActions preset={preset} />}
+      // The notice reads the address, so it waits inside Suspense; the page HTML stays the same for everyone.
+      notice={
+        <Suspense>
+          <SavedNotice />
+        </Suspense>
+      }
+    />
+  );
 }

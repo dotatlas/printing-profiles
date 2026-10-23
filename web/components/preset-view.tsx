@@ -10,7 +10,8 @@ import { PresetDetails, PresetFacts } from "./preset-facts";
 export function PresetView({ preset, actions, notice }: { preset: Preset; actions?: ReactNode; notice?: ReactNode }) {
   return (
     <article>
-      {notice && <div className="mb-6">{notice}</div>}
+      {/* empty:hidden drops the space when the notice renders nothing, as SavedNotice does without a save. */}
+      {notice && <div className="mb-6 empty:hidden">{notice}</div>}
       <header className="flex flex-wrap items-start justify-between gap-x-6 gap-y-4">
         <div className="min-w-0 flex-1 basis-80">
           <h1 className="text-2xl font-semibold tracking-tight text-balance wrap-anywhere sm:text-3xl">{preset.title}</h1>

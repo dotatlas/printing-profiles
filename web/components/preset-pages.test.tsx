@@ -1,14 +1,16 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import type { Me, Preset } from "../lib/api-types";
-import { AuthorActions, EditPreset, MissingOrDraft, MyPresets } from "./preset-pages";
+import { AuthorActions, EditPreset, MissingOrDraft, MyPresets, SavedNotice } from "./preset-pages";
 import { SessionProvider } from "./session";
 
 const replace = vi.fn();
+const push = vi.fn();
+let search = "";
 vi.mock("next/navigation", () => ({
-  useRouter: () => ({ push: vi.fn(), replace }),
+  useRouter: () => ({ push, replace }),
   usePathname: () => "/presets/fast-pla-ab3defgh",
-  useSearchParams: () => new URLSearchParams(),
+  useSearchParams: () => new URLSearchParams(search),
 }));
 
 const bambu = { slug: "bambu-lab", name: "Bambu Lab" };
@@ -32,18 +34,29 @@ const catalog = { printers: [], materials: [], slicers: [] };
 // signIn makes the fake API answer /me with this user (or 401 for null), the preset route with the draft, and the
 // list of the user's presets.
 function signIn(me: Me | null) {
-  vi.stubGlobal("fetch", async (url: string) => {
+  const sent: { method: string; body: unknown }[] = [];
+  const published = { ...preset, id: "bcdefghj", slug: "old-pla", title: "Old PLA", status: "published" as const };
+  vi.stubGlobal("fetch", async (url: string, init?: RequestInit) => {
     const json = (status: number, body: unknown) => new Response(JSON.stringify(body), { status });
+    if (init?.method && init.method !== "GET") sent.push({ method: init.method, body: JSON.parse(String(init.body)) });
     if (url.endsWith("/api/v1/me")) return me ? json(200, me) : json(401, {});
-    if (url.endsWith("/api/v1/me/presets")) return json(200, { items: [preset] });
-    if (url.endsWith("/api/v1/presets/ab3defgh")) return me ? json(200, preset) : json(404, {});
+    if (url.endsWith("/api/v1/me/presets")) return json(200, { items: [preset, published] });
+    if (url.endsWith("/api/v1/presets/ab3defgh")) {
+      if (init?.method === "PATCH") return json(200, { ...preset, status: "published" });
+      return me ? json(200, preset) : json(404, {});
+    }
     return json(404, {});
   });
+  return sent;
 }
 const author: Me = { handle: "maker", display_name: "Mia Maker", needs_onboarding: false };
 const stranger: Me = { handle: "someone-else", display_name: "", needs_onboarding: false };
 
-beforeEach(() => replace.mockClear());
+beforeEach(() => {
+  replace.mockClear();
+  push.mockClear();
+  search = "";
+});
 afterEach(() => vi.unstubAllGlobals());
 
 test("the Edit button shows only to the author of the preset", async () => {
@@ -89,7 +102,7 @@ test("the author sees a draft on its own path, marked as a draft", async () => {
       <MissingOrDraft />
     </SessionProvider>,
   );
-  expect(await screen.findByText("This is a draft. Only you can see it.")).toBeDefined();
+  expect(await screen.findByText("This is a draft. Only you can see it. Publish it when it is ready.")).toBeDefined();
   expect(screen.getByRole("heading", { level: 1, name: "Fast PLA for the P1S" })).toBeDefined();
 });
 
@@ -110,7 +123,9 @@ test("My presets lists drafts with their mark, and sends a signed-out visitor to
       <MyPresets />
     </SessionProvider>,
   );
-  expect(await screen.findByText("Draft")).toBeDefined();
+  expect(await screen.findByRole("heading", { name: "Drafts" })).toBeDefined();
+  expect(screen.getByRole("heading", { name: "Published" })).toBeDefined();
+  expect(screen.getByText("Draft")).toBeDefined();
   expect(screen.getByRole("link", { name: "Edit Fast PLA for the P1S" })).toBeDefined();
   unmount();
 
@@ -121,4 +136,36 @@ test("My presets lists drafts with their mark, and sends a signed-out visitor to
     </SessionProvider>,
   );
   await vi.waitFor(() => expect(replace).toHaveBeenCalledWith("/signin?return=%2Fmy-presets"));
+});
+
+test("the draft view publishes the draft in one step and opens the published page", async () => {
+  const sent = signIn(author);
+  render(
+    <SessionProvider>
+      <MissingOrDraft />
+    </SessionProvider>,
+  );
+
+  fireEvent.click(await screen.findByRole("button", { name: "Publish" }));
+
+  await vi.waitFor(() => expect(push).toHaveBeenCalledWith("/presets/fast-pla-ab3defgh?saved=published"));
+  expect(sent).toEqual([{ method: "PATCH", body: { status: "published" } }]);
+});
+
+test("after a publish the page says so, takes the focus, and copies the link", async () => {
+  search = "saved=published";
+  const writeText = vi.fn(async () => {});
+  vi.stubGlobal("navigator", { clipboard: { writeText } });
+  render(<SavedNotice />);
+
+  const notice = screen.getByText(/Published\. Anyone can find it now\./);
+  expect(document.activeElement).toBe(notice.closest("[tabindex]"));
+  fireEvent.click(screen.getByRole("button", { name: "Copy link" }));
+  await vi.waitFor(() => expect(screen.getByRole("button", { name: "Link copied" })).toBeDefined());
+  expect(writeText).toHaveBeenCalledWith(`${location.origin}${location.pathname}`);
+});
+
+test("without a saved mark the notice shows nothing", () => {
+  const { container } = render(<SavedNotice />);
+  expect(container.innerHTML).toBe("");
 });
