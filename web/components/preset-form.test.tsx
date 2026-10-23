@@ -28,7 +28,10 @@ const preset: Preset = {
   updated_at: "2026-10-20T10:00:00Z",
 };
 
-afterEach(() => vi.unstubAllGlobals());
+afterEach(() => {
+  vi.unstubAllGlobals();
+  sessionStorage.clear();
+});
 
 // stubAPI answers every request with one status and body, and keeps the request bodies.
 function stubAPI(status: number, body: unknown, headers: Record<string, string> = {}) {
@@ -111,7 +114,7 @@ test("editing fills in the preset and keeps a draft a draft until the author pub
   expect((screen.getByLabelText("Nozzle") as HTMLSelectElement).value).toBe("0.6");
   expect((screen.getByLabelText(/^CC0 1\.0/) as HTMLInputElement).checked).toBe(true);
 
-  fireEvent.click(screen.getByRole("button", { name: "Save draft" }));
+  fireEvent.click(screen.getByRole("button", { name: "Save as draft" }));
   await waitFor(() => expect(sent).toHaveLength(1));
   expect(sent[0]).toMatchObject({ status: "draft", nozzle_mm: 0.6 });
 });
@@ -134,4 +137,30 @@ test("near the limit the description counts the characters left, in the singular
   expect(screen.getByText("1 character left.")).toBeDefined();
   fireEvent.change(description, { target: { value: "x".repeat(3600) } });
   expect(screen.getByText("400 characters left.")).toBeDefined();
+});
+
+test("the new form keeps what was typed in this tab, and Start over clears it", () => {
+  const { unmount } = render(<PresetForm catalog={catalog} onSaved={() => {}} />);
+  fireEvent.change(screen.getByLabelText("Title"), { target: { value: "Half typed" } });
+  unmount();
+
+  render(<PresetForm catalog={catalog} onSaved={() => {}} />);
+  expect((screen.getByLabelText("Title") as HTMLInputElement).value).toBe("Half typed");
+  fireEvent.click(screen.getByRole("button", { name: "Start over" }));
+  expect((screen.getByLabelText("Title") as HTMLInputElement).value).toBe("");
+});
+
+test("an empty form puts the focus on the printer, the first field of the page", () => {
+  render(<PresetForm catalog={catalog} onSaved={() => {}} />);
+
+  fireEvent.click(screen.getByRole("button", { name: "Publish" }));
+
+  expect(document.activeElement).toBe(screen.getByLabelText("Printer"));
+  expect(screen.getByText("Give the preset a title.")).toBeDefined();
+});
+
+test("the edit form links back to the preset", () => {
+  render(<PresetForm catalog={catalog} preset={preset} cancelHref="/presets/fast-pla-ab3defgh" onSaved={() => {}} />);
+
+  expect(screen.getByRole("link", { name: "Cancel" })).toHaveProperty("href", expect.stringMatching(/\/presets\/fast-pla-ab3defgh$/));
 });

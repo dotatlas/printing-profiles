@@ -1,6 +1,7 @@
 "use client";
 
-import { type FormEvent, type ReactNode, useId, useState } from "react";
+import Link from "next/link";
+import { type FormEvent, type ReactNode, useEffect, useId, useState } from "react";
 import { ApiError, waitText } from "../lib/account";
 import { type License, licenseValues, nozzleValues, type Preset } from "../lib/api-types";
 import { createPreset, type FormField, fieldOfProblem, updatePreset } from "../lib/my-presets";
@@ -40,12 +41,36 @@ function valuesOf(preset?: Preset): Values {
 // checkValues finds the fields that the API would refuse, in form order, so the form can answer at once.
 function checkValues(v: Values): Errors {
   const errors: Errors = {};
-  const title = v.title.trim().length;
-  if (title < 5 || title > 100) errors.title = title === 0 ? "Give the preset a title." : "The title needs 5 to 100 characters.";
   if (!v.printer) errors.printer = "Choose a printer.";
   if (!v.material) errors.material = "Choose a filament.";
   if (!v.slicer) errors.slicer = "Choose a slicer.";
+  const title = v.title.trim().length;
+  if (title === 0) errors.title = "Give the preset a title.";
+  else if (title < 5) errors.title = `The title needs at least 5 characters; it has ${title}.`;
   return errors;
+}
+
+// keptKey is where the new form keeps what the visitor typed, so a reload or a wrong link loses nothing.
+const keptKey = "preset-form:new";
+
+// keptValues reads what the new form kept in this tab, or null. Storage can be missing or blocked.
+function keptValues(): Values | null {
+  try {
+    const text = sessionStorage.getItem(keptKey);
+    return text ? { ...valuesOf(), ...(JSON.parse(text) as Partial<Values>) } : null;
+  } catch {
+    return null;
+  }
+}
+
+// keep writes the new form's values to this tab's storage, or removes them with null.
+function keep(values: Values | null) {
+  try {
+    if (values) sessionStorage.setItem(keptKey, JSON.stringify(values));
+    else sessionStorage.removeItem(keptKey);
+  } catch {
+    // Without storage the form still works; it only cannot keep the values.
+  }
 }
 
 // problemText says why a save failed when the error is not about one field. PresetForm shows it above the buttons.
@@ -92,14 +117,32 @@ function Field({
 }
 
 // PresetForm makes a new preset or edits one. The new and edit pages give it the catalog, and the edit page also
-// gives the preset. It calls onSaved with the API's answer, and the page decides where to go next.
-export function PresetForm({ catalog, preset, onSaved }: { catalog: Catalog; preset?: Preset; onSaved: (p: Preset) => void }) {
+// gives the preset and the way back (cancelHref). It calls onSaved with the API's answer, and the page decides where
+// to go next. The new form keeps the typed values in this tab until a save.
+export function PresetForm({
+  catalog,
+  preset,
+  cancelHref,
+  onSaved,
+}: {
+  catalog: Catalog;
+  preset?: Preset;
+  cancelHref?: string;
+  onSaved: (p: Preset) => void;
+}) {
   const base = useId();
-  const [values, setValues] = useState(() => valuesOf(preset));
+  // The form renders only in the browser (the pages wait for the session first), so storage is there to read.
+  const [kept] = useState(() => (preset ? null : keptValues()));
+  const [values, setValues] = useState(() => kept ?? valuesOf(preset));
+  const [restored, setRestored] = useState(kept !== null);
   const [errors, setErrors] = useState<Errors>({});
   const [problem, setProblem] = useState("");
   const [saving, setSaving] = useState<"draft" | "published" | null>(null);
   const draft = !preset || preset.status === "draft";
+
+  useEffect(() => {
+    if (!preset) keep(values);
+  }, [preset, values]);
 
   const set = (key: keyof Values) => (e: { target: { value: string } }) => setValues((v) => ({ ...v, [key]: e.target.value }));
   const invalid = (field: FormField) => (errors[field] ? true : undefined);
@@ -133,7 +176,9 @@ export function PresetForm({ catalog, preset, onSaved }: { catalog: Catalog; pre
       status,
     };
     try {
-      onSaved(preset ? await updatePreset(preset.id, input) : await createPreset(input));
+      const saved = preset ? await updatePreset(preset.id, input) : await createPreset(input);
+      if (!preset) keep(null);
+      onSaved(saved);
     } catch (err) {
       const api = err instanceof ApiError ? err : null;
       const field = api?.status === 400 ? fieldOfProblem(api.detail) : null;
@@ -147,21 +192,21 @@ export function PresetForm({ catalog, preset, onSaved }: { catalog: Catalog; pre
   const left = maxDescription - values.description.length;
   return (
     <form onSubmit={onSubmit} noValidate className="flex max-w-2xl flex-col gap-8">
-      <Field id={idOf(base, "title")} label="Title" hint="5 to 100 characters. Say what the preset is good at." error={errors.title}>
-        {(describedBy) => (
-          <input
-            id={idOf(base, "title")}
-            className="field"
-            value={values.title}
-            onChange={set("title")}
-            maxLength={100}
-            autoComplete="off"
-            aria-invalid={invalid("title")}
-            aria-describedby={describedBy}
-          />
-        )}
-      </Field>
-
+      {restored && (
+        <Notice>
+          This form kept what you typed before.{" "}
+          <button
+            type="button"
+            className="underline underline-offset-2"
+            onClick={() => {
+              setValues(valuesOf());
+              setRestored(false);
+            }}
+          >
+            Start over
+          </button>
+        </Notice>
+      )}
       <fieldset className="grid gap-4 sm:grid-cols-2">
         <legend className="mb-3 font-semibold">Your setup</legend>
         <Field id={idOf(base, "printer")} label="Printer" error={errors.printer}>
@@ -219,6 +264,21 @@ export function PresetForm({ catalog, preset, onSaved }: { catalog: Catalog; pre
         </Field>
       </fieldset>
 
+      <Field id={idOf(base, "title")} label="Title" hint="5 to 100 characters. Say what the preset is good at." error={errors.title}>
+        {(describedBy) => (
+          <input
+            id={idOf(base, "title")}
+            className="field"
+            value={values.title}
+            onChange={set("title")}
+            maxLength={100}
+            autoComplete="off"
+            aria-invalid={invalid("title")}
+            aria-describedby={describedBy}
+          />
+        )}
+      </Field>
+
       <Field
         id={idOf(base, "description")}
         label="Description (optional)"
@@ -270,7 +330,7 @@ export function PresetForm({ catalog, preset, onSaved }: { catalog: Catalog; pre
                 {saving === "published" ? "Publishing…" : "Publish"}
               </button>
               <button type="submit" value="draft" className="btn btn-secondary" disabled={saving !== null}>
-                {saving === "draft" ? "Saving…" : preset ? "Save draft" : "Save as draft"}
+                {saving === "draft" ? "Saving…" : "Save as draft"}
               </button>
             </>
           ) : (
@@ -278,8 +338,15 @@ export function PresetForm({ catalog, preset, onSaved }: { catalog: Catalog; pre
               {saving ? "Saving…" : "Save changes"}
             </button>
           )}
+          {cancelHref && (
+            <Link href={cancelHref} className="btn btn-secondary">
+              Cancel
+            </Link>
+          )}
         </div>
-        {draft && <p className="text-sm text-muted">A draft is visible only to you.</p>}
+        <p className="text-sm text-muted">
+          {draft ? "A draft is visible only to you." : "Saved changes show on the public page at once."}
+        </p>
       </div>
     </form>
   );
