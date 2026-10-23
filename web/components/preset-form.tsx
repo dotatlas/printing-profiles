@@ -222,7 +222,7 @@ export function PresetForm({ catalog, preset, onSaved }: { catalog: Catalog; pre
       <Field
         id={idOf(base, "description")}
         label="Description (optional)"
-        hint={left < 500 ? `${left} characters left.` : "What did you tune, and what does it print well? Plain text."}
+        hint={left < 500 ? `${left} ${left === 1 ? "character" : "characters"} left.` : "What did you tune, and what does it print well? Plain text."}
         error={errors.description}
       >
         {(describedBy) => (

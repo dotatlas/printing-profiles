@@ -125,3 +125,13 @@ test("at the create limit the form says when to try again, above the buttons", a
 
   expect((await screen.findByRole("alert")).textContent).toBe("You shared many presets in the last hour. Try again in 10 minutes.");
 });
+
+test("near the limit the description counts the characters left, in the singular for one", () => {
+  render(<PresetForm catalog={catalog} onSaved={() => {}} />);
+  const description = screen.getByLabelText("Description (optional)");
+
+  fireEvent.change(description, { target: { value: "x".repeat(3999) } });
+  expect(screen.getByText("1 character left.")).toBeDefined();
+  fireEvent.change(description, { target: { value: "x".repeat(3600) } });
+  expect(screen.getByText("400 characters left.")).toBeDefined();
+});
