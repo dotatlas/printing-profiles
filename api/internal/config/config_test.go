@@ -17,7 +17,7 @@ func TestLoadUsesDevDefaultsWhenNothingIsSet(t *testing.T) {
 		t.Fatal(err)
 	}
 	want := Config{Env: "dev", Port: 8080, SiteOrigin: "http://localhost:3000", APIOrigin: "http://localhost:8080",
-		DatabaseURL: "postgres://printing:printing@localhost:5432/printing?sslmode=disable"}
+		DatabaseURL: "postgres://printing:printing@localhost:5432/printing?sslmode=disable", HashKey: devHashKey}
 	if cfg != want {
 		t.Errorf("got %+v, want %+v", cfg, want)
 	}
@@ -29,6 +29,7 @@ func TestLoadReadsEveryVariable(t *testing.T) {
 		"API_ORIGIN": "https://API.printingprofiles.com/", "DATABASE_URL": "postgres://u:p@db.example:5432/pp?sslmode=require",
 		"GITHUB_CLIENT_ID": "gh-id", "GITHUB_CLIENT_SECRET": "gh-secret",
 		"DISCORD_CLIENT_ID": "dc-id", "DISCORD_CLIENT_SECRET": "dc-secret",
+		"HASH_KEY": "0123456789abcdef0123456789abcdef", "PROXY_HOPS": "2",
 	}))
 
 	if err != nil {
@@ -36,7 +37,8 @@ func TestLoadReadsEveryVariable(t *testing.T) {
 	}
 	want := Config{Env: "prod", Port: 9000, SiteOrigin: "https://printingprofiles.com", APIOrigin: "https://api.printingprofiles.com",
 		DatabaseURL: "postgres://u:p@db.example:5432/pp?sslmode=require",
-		GitHub:      OAuthClient{ID: "gh-id", Secret: "gh-secret"}, Discord: OAuthClient{ID: "dc-id", Secret: "dc-secret"}}
+		GitHub:      OAuthClient{ID: "gh-id", Secret: "gh-secret"}, Discord: OAuthClient{ID: "dc-id", Secret: "dc-secret"},
+		HashKey: "0123456789abcdef0123456789abcdef", ProxyHops: 2}
 	if cfg != want {
 		t.Errorf("got %+v, want %+v", cfg, want)
 	}
@@ -114,12 +116,30 @@ func TestLoadNeedsBothOAuthValuesAndNeverPrintsTheSecret(t *testing.T) {
 }
 
 func TestLoadNeedsAnHTTPSAPIOriginInProd(t *testing.T) {
-	base := map[string]string{"ENV": "prod", "SITE_ORIGIN": "https://printingprofiles.com", "DATABASE_URL": "postgres://u:p@h/d"}
+	base := map[string]string{"ENV": "prod", "SITE_ORIGIN": "https://printingprofiles.com", "DATABASE_URL": "postgres://u:p@h/d",
+		"HASH_KEY": "0123456789abcdef0123456789abcdef"}
 	if _, err := Load(env(base)); err == nil || !strings.Contains(err.Error(), "API_ORIGIN must be set") {
 		t.Errorf("missing API_ORIGIN: err = %v", err)
 	}
 	base["API_ORIGIN"] = "http://api.printingprofiles.com"
 	if _, err := Load(env(base)); err == nil || !strings.Contains(err.Error(), "API_ORIGIN") {
 		t.Errorf("http API_ORIGIN in prod: err = %v", err)
+	}
+}
+
+func TestLoadNeedsALongHashKeyInProdAndOneProxyHopByDefault(t *testing.T) {
+	base := map[string]string{"ENV": "prod", "SITE_ORIGIN": "https://printingprofiles.com", "API_ORIGIN": "https://api.printingprofiles.com",
+		"DATABASE_URL": "postgres://u:p@h/d"}
+	if _, err := Load(env(base)); err == nil || !strings.Contains(err.Error(), "HASH_KEY must be set") {
+		t.Errorf("missing HASH_KEY: err = %v", err)
+	}
+	base["HASH_KEY"] = "short-secret"
+	if _, err := Load(env(base)); err == nil || strings.Contains(err.Error(), "short-secret") {
+		t.Errorf("short HASH_KEY: err = %v, want an error without the value", err)
+	}
+	base["HASH_KEY"] = "0123456789abcdef0123456789abcdef"
+	cfg, err := Load(env(base))
+	if err != nil || cfg.ProxyHops != 1 {
+		t.Errorf("prod defaults: ProxyHops %d, err %v, want 1", cfg.ProxyHops, err)
 	}
 }

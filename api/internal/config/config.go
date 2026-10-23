@@ -18,7 +18,12 @@ type Config struct {
 	DatabaseURL string // the PostgreSQL connection URL
 	GitHub      OAuthClient
 	Discord     OAuthClient
+	HashKey     string // the HMAC key for rate-limit keys, so stored IPs and addresses cannot be read back
+	ProxyHops   int    // how many proxies in front add to X-Forwarded-For; 0 means use the socket address
 }
+
+// devHashKey is the HMAC key in dev. It is not a secret, so prod must set its own HASH_KEY.
+const devHashKey = "dev-only-hash-key-that-is-not-a-secret"
 
 // OAuthClient is the client ID and secret of one OAuth app. A provider is on only when both are set.
 type OAuthClient struct {
@@ -34,6 +39,7 @@ func Load(getenv func(string) string) (Config, error) {
 		Port:        8080,
 		SiteOrigin:  "http://localhost:3000",
 		APIOrigin:   "http://localhost:8080",
+		HashKey:     devHashKey,
 		DatabaseURL: "postgres://printing:printing@localhost:5432/printing?sslmode=disable", // the docker compose database
 	}
 	var errs []error
@@ -58,6 +64,28 @@ func Load(getenv func(string) string) (Config, error) {
 	cfg.APIOrigin, errs = readOrigin(getenv, "API_ORIGIN", cfg.APIOrigin, cfg.Env == "prod", errs)
 	cfg.GitHub, errs = readOAuthClient(getenv, "GITHUB", errs)
 	cfg.Discord, errs = readOAuthClient(getenv, "DISCORD", errs)
+
+	key := getenv("HASH_KEY")
+	switch {
+	case key == "" && cfg.Env == "prod":
+		errs = append(errs, errors.New("HASH_KEY must be set in prod"))
+	case key != "" && len(key) < 32:
+		errs = append(errs, errors.New("HASH_KEY must be at least 32 characters")) // The value stays out of the error.
+	case key != "":
+		cfg.HashKey = key
+	}
+
+	if cfg.Env == "prod" {
+		cfg.ProxyHops = 1 // In prod, the host's ingress is the one proxy in front of the API.
+	}
+	if v := getenv("PROXY_HOPS"); v != "" {
+		n, err := strconv.Atoi(v)
+		if err != nil || n < 0 || n > 5 {
+			errs = append(errs, fmt.Errorf("PROXY_HOPS must be a number from 0 to 5, not %q", v))
+		} else {
+			cfg.ProxyHops = n
+		}
+	}
 	dbURL := getenv("DATABASE_URL")
 	switch {
 	case dbURL == "" && cfg.Env == "prod":

@@ -63,3 +63,12 @@ DELETE FROM oauth_flows WHERE expires_at <= now();
 -- name: AddIdentity :exec
 INSERT INTO identities (user_id, provider, provider_user_id, email)
 VALUES (sqlc.arg(user_id), sqlc.arg(provider), sqlc.arg(provider_user_id), sqlc.arg(email));
+
+-- name: HitRateLimit :one
+-- Count one more request in this window and return the new count.
+INSERT INTO rate_limits (key, window_start, count) VALUES (sqlc.arg(key), sqlc.arg(window_start), 1)
+ON CONFLICT (key, window_start) DO UPDATE SET count = rate_limits.count + 1
+RETURNING count;
+
+-- name: DeleteOldRateLimits :exec
+DELETE FROM rate_limits WHERE window_start < now() - interval '1 day';

@@ -547,7 +547,9 @@ export interface operations {
                 content?: never;
             };
             401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
             404: components["responses"]["Problem"];
+            415: components["responses"]["Problem"];
             default: components["responses"]["Problem"];
         };
     };
@@ -567,6 +569,8 @@ export interface operations {
                 };
                 content?: never;
             };
+            403: components["responses"]["Problem"];
+            415: components["responses"]["Problem"];
             default: components["responses"]["Problem"];
         };
     };
@@ -587,6 +591,8 @@ export interface operations {
                 content?: never;
             };
             401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            415: components["responses"]["Problem"];
             default: components["responses"]["Problem"];
         };
     };
@@ -616,6 +622,7 @@ export interface operations {
             };
             401: components["responses"]["Problem"];
             404: components["responses"]["Problem"];
+            429: components["responses"]["Problem"];
             default: components["responses"]["Problem"];
         };
     };

@@ -37,10 +37,13 @@ func signInAs(t *testing.T, s *Server, login string) string {
 	return ""
 }
 
-// withSession returns a request with the session cookie set to token.
+// withSession returns a request with the session cookie set to token. A write also gets the site's Origin, as from the site.
 func withSession(method, path, token string) *http.Request {
 	r := httptest.NewRequest(method, path, nil)
 	r.AddCookie(&http.Cookie{Name: sessionCookie, Value: token})
+	if method != http.MethodGet {
+		r.Header.Set("Origin", "http://localhost:3000")
+	}
 	return r
 }
 
@@ -162,7 +165,9 @@ func TestAStrangerCannotListOrEndYourSessions(t *testing.T) {
 	if rec := serve(s, withSession(http.MethodDelete, path, mallory)); rec.Code != http.StatusNotFound {
 		t.Errorf("a stranger deleting a session: status %d, want 404", rec.Code)
 	}
-	if rec := serve(s, httptest.NewRequest(http.MethodDelete, path, nil)); rec.Code != http.StatusUnauthorized {
+	signedOut := httptest.NewRequest(http.MethodDelete, path, nil)
+	signedOut.Header.Set("Origin", "http://localhost:3000")
+	if rec := serve(s, signedOut); rec.Code != http.StatusUnauthorized {
 		t.Errorf("signed out: status %d, want 401", rec.Code)
 	}
 	rec := serve(s, withSession(http.MethodGet, "/api/v1/me/sessions", mallory))

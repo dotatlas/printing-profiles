@@ -46,6 +46,7 @@ func (s *Server) Handler() http.Handler {
 
 	// The last wrapper runs first. requestID is last, so every answer and log line has an ID.
 	var h http.Handler = problemsForUnmatched(mux)
+	h = s.checkWrites(mux, h)
 	h = s.loadSession(h)
 	h = limitBody(h)
 	h = s.cors(h)

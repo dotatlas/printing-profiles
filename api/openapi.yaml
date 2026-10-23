@@ -2,7 +2,9 @@ openapi: 3.1.0
 info:
   title: Printing Profiles API
   version: 0.1.0
-  description: Every answer has an X-Request-ID header. Every error is RFC 9457 problem details.
+  description: >-
+    Every answer has an X-Request-ID header. Every error is RFC 9457 problem details.
+    Every POST, PATCH and DELETE needs the site's Origin header, and a JSON body when it has one (403 or 415 otherwise).
   license:
     name: AGPL-3.0-only
     identifier: AGPL-3.0-only
@@ -159,6 +161,10 @@ paths:
           $ref: "#/components/responses/Problem"
         "404":
           $ref: "#/components/responses/Problem"
+        "403":
+          $ref: "#/components/responses/Problem"
+        "415":
+          $ref: "#/components/responses/Problem"
         default:
           $ref: "#/components/responses/Problem"
   /api/v1/auth/signout:
@@ -169,6 +175,10 @@ paths:
       responses:
         "204":
           description: Signed out (also when no one was signed in). The cookie is cleared.
+        "403":
+          $ref: "#/components/responses/Problem"
+        "415":
+          $ref: "#/components/responses/Problem"
         default:
           $ref: "#/components/responses/Problem"
   /api/v1/auth/signout-all:
@@ -180,6 +190,10 @@ paths:
         "204":
           description: Every session is ended. The cookie is cleared.
         "401":
+          $ref: "#/components/responses/Problem"
+        "403":
+          $ref: "#/components/responses/Problem"
+        "415":
           $ref: "#/components/responses/Problem"
         default:
           $ref: "#/components/responses/Problem"
@@ -206,6 +220,8 @@ paths:
         "401":
           $ref: "#/components/responses/Problem"
         "404":
+          $ref: "#/components/responses/Problem"
+        "429":
           $ref: "#/components/responses/Problem"
         default:
           $ref: "#/components/responses/Problem"

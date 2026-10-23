@@ -59,6 +59,9 @@ func (s *Server) handleOAuthStart(w http.ResponseWriter, r *http.Request) {
 		writeProblem(w, http.StatusNotFound, "unknown sign-in provider")
 		return
 	}
+	if !s.allow(w, r, "oauth-start", s.clientIP(r), 30, time.Hour) {
+		return
+	}
 	var linkUser pgtype.Int8
 	if r.URL.Query().Get("link") == "1" {
 		u, ok := requireUser(w, r) // Only a signed-in user can add a provider to an account.

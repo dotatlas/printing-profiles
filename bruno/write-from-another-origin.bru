@@ -1,0 +1,20 @@
+meta {
+  name: write from another origin
+  type: http
+  seq: 15
+}
+
+post {
+  url: {{baseUrl}}/api/v1/auth/signout
+  body: none
+  auth: none
+}
+
+headers {
+  Origin: https://evil.example
+}
+
+assert {
+  res.status: eq 403
+  res.headers["content-type"]: eq application/problem+json
+}

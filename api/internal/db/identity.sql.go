@@ -117,6 +117,15 @@ func (q *Queries) DeleteExpiredSessions(ctx context.Context, userID int64) error
 	return err
 }
 
+const deleteOldRateLimits = `-- name: DeleteOldRateLimits :exec
+DELETE FROM rate_limits WHERE window_start < now() - interval '1 day'
+`
+
+func (q *Queries) DeleteOldRateLimits(ctx context.Context) error {
+	_, err := q.db.Exec(ctx, deleteOldRateLimits)
+	return err
+}
+
 const deleteSession = `-- name: DeleteSession :execrows
 DELETE FROM sessions WHERE id = $1 AND user_id = $2
 `
@@ -192,6 +201,25 @@ func (q *Queries) GetSession(ctx context.Context, tokenHash []byte) (GetSessionR
 		&i.DisplayName,
 	)
 	return i, err
+}
+
+const hitRateLimit = `-- name: HitRateLimit :one
+INSERT INTO rate_limits (key, window_start, count) VALUES ($1, $2, 1)
+ON CONFLICT (key, window_start) DO UPDATE SET count = rate_limits.count + 1
+RETURNING count
+`
+
+type HitRateLimitParams struct {
+	Key         []byte
+	WindowStart time.Time
+}
+
+// Count one more request in this window and return the new count.
+func (q *Queries) HitRateLimit(ctx context.Context, arg HitRateLimitParams) (int32, error) {
+	row := q.db.QueryRow(ctx, hitRateLimit, arg.Key, arg.WindowStart)
+	var count int32
+	err := row.Scan(&count)
+	return count, err
 }
 
 const listSessions = `-- name: ListSessions :many
