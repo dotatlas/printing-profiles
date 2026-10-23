@@ -12,7 +12,7 @@ const nextConfig: NextConfig = {
   output: "standalone",
   // The browser calls the API for sign-in and account data. Its URL is built in: NEXT_PUBLIC_API_URL when it is
   // set (a self-hosted site whose server reads the API on an internal address), otherwise API_URL.
-  env: { NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL ?? process.env.API_URL ?? "http://localhost:8080" },
+  env: { NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL || process.env.API_URL || "http://localhost:8080" },
   poweredByHeader: false,
   // The images are already small. The server sends them as they are and writes no image cache to the read-only disk.
   images: { unoptimized: true },
