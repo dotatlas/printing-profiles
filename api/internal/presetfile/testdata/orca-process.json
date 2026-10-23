@@ -1,0 +1,11 @@
+{
+    "type": "process",
+    "name": "0.20mm Strength @BBL P1S - fast",
+    "inherits": "0.20mm Strength @BBL P1S",
+    "from": "User",
+    "layer_height": "0.2",
+    "wall_loops": "4",
+    "sparse_infill_density": "25%",
+    "sparse_infill_pattern": "gyroid",
+    "outer_wall_speed": "200"
+}

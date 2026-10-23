@@ -1,0 +1,15 @@
+{
+    "type": "filament",
+    "name": "Overture PLA @Bambu Lab P1S 0.4 nozzle",
+    "inherits": "Generic PLA @BBL P1S",
+    "from": "User",
+    "version": "2.3.0.4",
+    "filament_type": ["PLA"],
+    "filament_retraction_length": ["nil"],
+    "nozzle_temperature": ["215"],
+    "nozzle_temperature_initial_layer": ["220"],
+    "hot_plate_temp": ["60"],
+    "hot_plate_temp_initial_layer": ["60"],
+    "fan_min_speed": ["60"],
+    "fan_max_speed": ["100"]
+}

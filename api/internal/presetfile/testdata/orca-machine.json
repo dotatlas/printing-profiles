@@ -1,0 +1,11 @@
+{
+    "type": "machine",
+    "name": "Bambu Lab P1S 0.4 nozzle - quiet",
+    "inherits": "Bambu Lab P1S 0.4 nozzle",
+    "from": "User",
+    "nozzle_diameter": ["0.4"],
+    "print_host": "10.0.0.5",
+    "printhost_apikey": "abc123",
+    "retraction_length": ["0.8"],
+    "retraction_speed": ["30"]
+}
