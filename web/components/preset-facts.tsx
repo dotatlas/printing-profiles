@@ -85,7 +85,22 @@ export function PresetDetails({ preset }: { preset: Preset }) {
 }
 
 const slicerNames: Record<string, string> = { prusaslicer: "PrusaSlicer", superslicer: "SuperSlicer", orcaslicer: "OrcaSlicer" };
+
+// slicerName names a file's slicer format; the OrcaSlicer format also covers Bambu Studio and Creality Print.
+export function slicerName(slicer: string): string {
+  return slicer === "orcaslicer" ? "OrcaSlicer or Bambu Studio" : (slicerNames[slicer] ?? slicer);
+}
 const kindNames: Record<string, string> = { print: "print", filament: "filament", printer: "printer", config: "full" };
+
+// fileKind and fileExt say what a preset file covers and its file type: "filament" and ".ini". The preset page
+// names the file with them, so a visitor knows what goes into the slicer.
+export function fileKind(kind: string): string {
+  return kind === "config" ? "all" : (kindNames[kind] ?? kind);
+}
+
+export function fileExt(slicer: string): string {
+  return slicer === "orcaslicer" ? ".json" : ".ini";
+}
 
 // fileLabel names a checked preset file, such as "PrusaSlicer filament settings, version 2.9.6". The form and the
 // preset page use it.
@@ -99,7 +114,7 @@ export function fileLabel(file: { slicer: string; kind: string; slicer_version?:
 export function KeySettings({ settings }: { settings: KeySetting[] }) {
   if (settings.length === 0) return <p className="text-sm text-muted">The file holds none of the settings in this table.</p>;
   return (
-    <dl className="grid grid-cols-[minmax(0,1fr)_auto] text-sm sm:grid-cols-[minmax(0,14rem)_minmax(0,1fr)]">
+    <dl className="grid max-w-xl grid-cols-[minmax(0,1fr)_auto] text-sm">
       {settings.map((s) => (
         <div key={s.id} className="contents">
           {/* Padding, not a column gap, so each row's rule runs unbroken across both columns. */}

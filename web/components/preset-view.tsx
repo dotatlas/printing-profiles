@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 import type { Preset } from "../lib/api-types";
 import { formatDate } from "../lib/format";
 import { authorName } from "../lib/presets";
-import { fileLabel, KeySettings, PresetDetails, PresetFacts } from "./preset-facts";
+import { fileExt, fileKind, KeySettings, PresetDetails, PresetFacts, slicerName } from "./preset-facts";
 
 // PresetView shows one preset: the title, the author, the facts as tags, the description and the details. The
 // preset page renders it on the server; the draft view renders it in the browser. actions holds the author's
@@ -30,9 +30,12 @@ export function PresetView({ preset, actions, notice }: { preset: Preset; action
           {preset.file && (
             <section aria-labelledby="key-settings">
               <h2 id="key-settings" className="font-semibold">
-                Key settings
+                {fileKind(preset.file.kind).replace(/^./, (c) => c.toUpperCase())} settings in the file
               </h2>
-              <p className="mt-1 text-sm text-muted">Read from the preset file. The file holds every other setting too.</p>
+              <p className="mt-1 text-sm text-muted">
+                The key ones, read from the {slicerName(preset.file.slicer)}
+                {preset.file.slicer_version && ` ${preset.file.slicer_version}`} file. It holds every other setting too.
+              </p>
               <div className="mt-3">
                 <KeySettings settings={preset.file.settings} />
               </div>
@@ -56,9 +59,9 @@ export function PresetView({ preset, actions, notice }: { preset: Preset; action
             <div className="flex flex-col gap-2">
               {/* A draft is not public, so its author gets the file itself, and nothing is counted. */}
               <a href={preset.status === "published" ? preset.file.download_url : preset.file.file_url} className="btn btn-primary w-full">
-                Download preset
+                Download {fileKind(preset.file.kind)} settings ({fileExt(preset.file.slicer)})
               </a>
-              <p className="text-sm text-muted">{fileLabel(preset.file)}</p>
+              <p className="text-sm text-muted">For {slicerName(preset.file.slicer)}. Import it in the slicer.</p>
             </div>
           )}
           <PresetDetails preset={preset} />

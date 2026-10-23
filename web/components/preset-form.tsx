@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { type ChangeEvent, type FormEvent, type ReactNode, useEffect, useId, useState } from "react";
+import { type ChangeEvent, type FormEvent, type ReactNode, useEffect, useId, useRef, useState } from "react";
 import { ApiError, waitText } from "../lib/account";
 import { type KeySetting, type License, licenseValues, nozzleValues, type Preset } from "../lib/api-types";
 import { createPreset, type FormField, fieldOfProblem, updatePreset, uploadPresetFile } from "../lib/my-presets";
@@ -28,7 +28,28 @@ type Errors = Partial<Record<FormField, string>>;
 
 // CheckedFile is what the form shows for a preset file: a new upload has an id; the edited preset's file has none.
 type CheckedFile = { id?: string; slicer: string; kind: string; slicer_version?: string; settings?: KeySetting[]; removed?: string[] };
-type FileState = { status: "none" } | { status: "checking" } | { status: "ready"; file: CheckedFile };
+
+// secretWords names the removed connection settings in words; any other one keeps its setting name.
+const secretWords: Record<string, string> = {
+  print_host: "address",
+  printhost_user: "user name",
+  printhost_password: "password",
+  printhost_apikey: "API key",
+};
+
+// removedText says in words which printer connection settings the check removed, for the note in the file panel.
+function removedText(removed: string[]): string {
+  const words = removed.map((key) => secretWords[key] ?? key);
+  const list = words.length > 1 ? `${words.slice(0, -1).join(", ")} and ${words.at(-1)}` : words[0];
+  const verb = words.length > 1 ? "they were" : "it was";
+  return `The file held the printer's ${list}, so ${verb} removed before the file was stored. Downloads never include ${words.length > 1 ? "them" : "it"}.`;
+}
+
+// refusalText adds the way forward to the reason why a file was refused.
+function refusalText(reason: string): string {
+  const sentence = reason.charAt(0).toUpperCase() + reason.slice(1);
+  return `${sentence.endsWith(".") ? sentence : `${sentence}.`} Export the preset from the slicer as a config file (.ini) or a preset file (.json), then choose it here.`;
+}
 
 // slicerOfFile gives the catalog slicer that a checked file fills in: only PrusaSlicer and SuperSlicer files say
 // which slicer they are; the OrcaSlicer format is shared with Bambu Studio and Creality Print.
@@ -148,7 +169,11 @@ export function PresetForm({
   const [errors, setErrors] = useState<Errors>({});
   const [problem, setProblem] = useState("");
   const [saving, setSaving] = useState<"draft" | "published" | null>(null);
-  const [file, setFile] = useState<FileState>(() => (preset?.file ? { status: "ready", file: preset.file } : { status: "none" }));
+  // file is the checked file (the edited preset's own until a new one is chosen); announce is the status line.
+  const [file, setFile] = useState<CheckedFile | null>(preset?.file ?? null);
+  const [checking, setChecking] = useState(false);
+  const [announce, setAnnounce] = useState("");
+  const fileInput = useRef<HTMLInputElement>(null);
   const draft = !preset || preset.status === "draft";
 
   useEffect(() => {
@@ -165,29 +190,52 @@ export function PresetForm({
     if (first) document.getElementById(idOf(base, first))?.focus();
   }
 
-  // onFile sends the chosen file to storage, has the API check it, and shows what the check found. A PrusaSlicer or
-  // SuperSlicer file fills in an empty slicer.
+  // onFile sends the chosen file to storage, has the API check it, and shows what the check found. It fills in an
+  // empty slicer (PrusaSlicer and SuperSlicer files) and an empty slicer version. A refused file keeps the one before.
   async function onFile(e: ChangeEvent<HTMLInputElement>) {
     const chosen = e.target.files?.[0];
-    if (!chosen) return;
+    if (!chosen || checking) return;
     setErrors((old) => ({ ...old, file: undefined }));
     if (chosen.size === 0 || chosen.size > maxFile) {
-      setFile({ status: "none" });
       const reason = chosen.size === 0 ? "The file is empty." : "The file is larger than 1 MB, so it is not a preset file.";
       setErrors((old) => ({ ...old, file: reason }));
+      setAnnounce(`The file was refused. ${reason}`);
       return;
     }
-    setFile({ status: "checking" });
+    setChecking(true);
+    setAnnounce("Checking the file…");
     try {
-      const checked = await uploadPresetFile(chosen);
-      setFile({ status: "ready", file: { ...checked, slicer: checked.slicer ?? "", kind: checked.kind ?? "" } });
-      const slug = slicerOfFile[checked.slicer ?? ""];
-      if (slug && catalog.slicers.some((s) => s.slug === slug)) setValues((v) => (v.slicer ? v : { ...v, slicer: slug }));
+      const upload = await uploadPresetFile(chosen);
+      const checked = { ...upload, slicer: upload.slicer ?? "", kind: upload.kind ?? "" };
+      const slug = slicerOfFile[checked.slicer];
+      const filled: string[] = [];
+      const next = { ...values };
+      if (!next.slicer && slug && catalog.slicers.some((x) => x.slug === slug)) {
+        next.slicer = slug;
+        filled.push("Slicer");
+      }
+      if (!next.slicerVersion && checked.slicer_version) {
+        next.slicerVersion = checked.slicer_version.slice(0, 20);
+        filled.push("Slicer version");
+      }
+      setValues(next);
+      setFile(checked);
+      const removed = checked.removed?.length ? ` ${removedText(checked.removed)}` : "";
+      setAnnounce(`Checked: ${fileLabel(checked)}.${filled.length ? ` Filled in from the file: ${filled.join(", ")}.` : ""}${removed}`);
     } catch (err) {
-      setFile({ status: "none" });
-      const reason = err instanceof ApiError && err.detail ? err.detail : "The file was not checked. Try again.";
-      setErrors((old) => ({ ...old, file: reason.charAt(0).toUpperCase() + reason.slice(1) }));
+      const reason = refusalText(err instanceof ApiError && err.detail ? err.detail : "the file was not checked; try again");
+      setErrors((old) => ({ ...old, file: reason }));
+      setAnnounce(`The file was refused. ${reason}`);
+    } finally {
+      setChecking(false);
     }
+  }
+
+  // removeFile drops a newly chosen file, so the preset keeps the file it had (or none).
+  function removeFile() {
+    setFile(preset?.file ?? null);
+    setAnnounce("The file was removed from the form.");
+    if (fileInput.current) fileInput.current.value = "";
   }
 
   async function onSubmit(e: FormEvent<HTMLFormElement>) {
@@ -211,7 +259,7 @@ export function PresetForm({
       license: values.license,
       status,
       // Only a new upload goes with the preset; the edited preset keeps its file otherwise.
-      ...(file.status === "ready" && file.file.id ? { file: file.file.id } : {}),
+      ...(file?.id ? { file: file.id } : {}),
     };
     try {
       const saved = preset ? await updatePreset(preset.id, input) : await createPreset(input);
@@ -249,36 +297,41 @@ export function PresetForm({
         id={idOf(base, "file")}
         label="Preset file (optional)"
         // Once a file is checked, its panel says what it is, so the hint goes away.
-        hint={file.status === "ready" ? undefined : "PrusaSlicer or SuperSlicer .ini, OrcaSlicer or Bambu Studio .json, up to 1 MB. You can add it later."}
+        hint={file ? undefined : "PrusaSlicer or SuperSlicer .ini, OrcaSlicer, Bambu Studio or Creality Print .json, up to 1 MB. You can add it later."}
         error={errors.file}
       >
         {(describedBy) => (
           <>
+            {/* Never disabled while a check runs: a disabled field would drop the keyboard focus. */}
             <input
+              ref={fileInput}
               id={idOf(base, "file")}
               type="file"
               accept=".ini,.json"
               className="file-input"
               onChange={onFile}
-              disabled={file.status === "checking"}
               aria-invalid={invalid("file")}
               aria-describedby={describedBy}
             />
-            {file.status === "checking" && (
-              <p role="status" className="text-sm text-muted">
-                Checking the file…
-              </p>
-            )}
-            {file.status === "ready" && (
+            {/* One status line that is always there, so screen readers hear each change. It shows while a check runs. */}
+            <p role="status" className={checking ? "text-sm text-muted" : "sr-only"}>
+              {announce}
+            </p>
+            {file && (
               <div className="panel mt-1 flex flex-col gap-3">
-                <p className="text-sm font-medium">{fileLabel(file.file)}</p>
-                {file.file.settings && <KeySettings settings={file.file.settings} />}
-                {file.file.removed && file.file.removed.length > 0 && (
-                  <Notice>
-                    The file held your printer&apos;s network settings, so they were removed before it was stored:{" "}
-                    {file.file.removed.join(", ")}.
-                  </Notice>
-                )}
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <p className="text-sm font-medium">
+                    {file.id ? "" : "Current file: "}
+                    {fileLabel(file)}
+                  </p>
+                  {file.id && (
+                    <button type="button" className="btn btn-secondary" onClick={removeFile}>
+                      Remove file
+                    </button>
+                  )}
+                </div>
+                {file.settings && <KeySettings settings={file.settings} />}
+                {file.removed && file.removed.length > 0 && <Notice quiet>{removedText(file.removed)}</Notice>}
               </div>
             )}
           </>
@@ -404,15 +457,15 @@ export function PresetForm({
         <div className="flex flex-wrap gap-3">
           {draft ? (
             <>
-              <button type="submit" value="published" className="btn btn-primary" disabled={saving !== null || file.status === "checking"}>
+              <button type="submit" value="published" className="btn btn-primary" disabled={saving !== null || checking}>
                 {saving === "published" ? "Publishing…" : "Publish"}
               </button>
-              <button type="submit" value="draft" className="btn btn-secondary" disabled={saving !== null || file.status === "checking"}>
+              <button type="submit" value="draft" className="btn btn-secondary" disabled={saving !== null || checking}>
                 {saving === "draft" ? "Saving…" : "Save as draft"}
               </button>
             </>
           ) : (
-            <button type="submit" value="published" className="btn btn-primary" disabled={saving !== null || file.status === "checking"}>
+            <button type="submit" value="published" className="btn btn-primary" disabled={saving !== null || checking}>
               {saving ? "Saving…" : "Save changes"}
             </button>
           )}

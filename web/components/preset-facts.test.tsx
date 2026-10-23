@@ -70,20 +70,20 @@ test("with a file, the preset page shows its key settings and a download that th
   };
   const { unmount } = render(<PresetView preset={{ ...preset, file, download_count: 12 }} />);
 
-  expect(screen.getByRole("heading", { name: "Key settings" })).toBeDefined();
+  expect(screen.getByRole("heading", { name: "Filament settings in the file" })).toBeDefined();
   expect(screen.getByText("210 °C")).toBeDefined();
-  expect(screen.getByRole("link", { name: "Download preset" })).toHaveProperty("href", file.download_url);
-  expect(screen.getByText("PrusaSlicer filament settings, version 2.9.6")).toBeDefined();
+  expect(screen.getByRole("link", { name: "Download filament settings (.ini)" })).toHaveProperty("href", file.download_url);
+  expect(screen.getByText(/PrusaSlicer 2\.9\.6/)).toBeDefined();
   expect(screen.getByText("12")).toBeDefined();
   unmount();
 
   // A draft is not public, so its author downloads the file itself and nothing is counted.
   render(<PresetView preset={{ ...preset, status: "draft", file, download_count: 0 }} />);
-  expect(screen.getByRole("link", { name: "Download preset" })).toHaveProperty("href", file.file_url);
+  expect(screen.getByRole("link", { name: "Download filament settings (.ini)" })).toHaveProperty("href", file.file_url);
 });
 
 test("without a file, the preset page says so and offers no download", () => {
   render(<PresetView preset={preset} />);
-  expect(screen.queryByRole("link", { name: "Download preset" })).toBeNull();
+  expect(screen.queryByRole("link", { name: /^Download/ })).toBeNull();
   expect(screen.getByText("None attached yet")).toBeDefined();
 });

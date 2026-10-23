@@ -1,10 +1,11 @@
 import type { ReactNode } from "react";
 
-// Notice is a short message box: an error with its recovery, or a plain note. Screen readers read it when it appears.
-export function Notice({ tone = "note", children }: { tone?: "note" | "error"; children: ReactNode }) {
+// Notice is a short message box: an error with its recovery, or a plain note. Screen readers read it when it appears,
+// unless it is quiet: then a status line elsewhere already says it.
+export function Notice({ tone = "note", quiet = false, children }: { tone?: "note" | "error"; quiet?: boolean; children: ReactNode }) {
   return (
     <div
-      role={tone === "error" ? "alert" : "status"}
+      role={quiet ? undefined : tone === "error" ? "alert" : "status"}
       className={
         tone === "error"
           ? "rounded-xl bg-danger-tint px-4 py-3 text-sm text-danger"

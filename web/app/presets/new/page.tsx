@@ -18,7 +18,7 @@ export default function NewPresetPage() {
     <>
       <h1 className="text-2xl font-semibold tracking-tight">Share a preset</h1>
       <p className="mt-2 max-w-prose text-muted">
-        Describe the printer, filament, nozzle and slicer that your settings are for.
+        Add your preset file, then the printer, filament, nozzle and slicer that it is for.
       </p>
       <div className="mt-8">
         <Suspense>

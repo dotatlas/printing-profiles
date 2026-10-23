@@ -204,9 +204,15 @@ test("a chosen file is checked and read back, fills in the slicer, and goes with
 
   expect(await screen.findByText("Nozzle temperature")).toBeDefined();
   expect(screen.getByText("210 °C")).toBeDefined();
-  expect(screen.getByText(/PrusaSlicer filament settings, version 2\.9\.6/)).toBeDefined();
-  expect(screen.getByText(/printhost_password/)).toBeDefined();
+  expect(screen.getByText(/^PrusaSlicer filament settings, version 2\.9\.6$/)).toBeDefined();
+  expect(screen.getAllByText(/the printer's password/)).toHaveLength(2); // the panel note and the status line
   expect((screen.getByLabelText("Slicer") as HTMLSelectElement).value).toBe("prusaslicer");
+  expect((screen.getByLabelText("Slicer version (optional)") as HTMLInputElement).value).toBe("2.9.6");
+  // One status line, always there, tells a screen reader what happened.
+  expect(screen.getByRole("status").textContent).toBe(
+    "Checked: PrusaSlicer filament settings, version 2.9.6. Filled in from the file: Slicer, Slicer version. " +
+      "The file held the printer's password, so it was removed before the file was stored. Downloads never include it.",
+  );
 
   fillNew();
   fireEvent.change(screen.getByLabelText("Slicer"), { target: { value: "prusaslicer" } });
@@ -222,8 +228,52 @@ test("a refused file shows the reason under the file field", async () => {
 
   fireEvent.change(input, { target: { files: [new File(["<html>"], "page.html")] } });
 
-  expect(await screen.findByText(/^The file is not a preset from PrusaSlicer/)).toBeDefined();
+  expect(await screen.findByText(/^The file is not a preset from PrusaSlicer.*\. Export the preset from the slicer/)).toBeDefined();
   expect(input.getAttribute("aria-invalid")).toBe("true");
+  expect(screen.getByRole("status").textContent).toMatch(/^The file was refused. The file is not a preset/);
+});
+
+test("a wrong second file keeps the checked first one, and Remove file clears it", async () => {
+  let calls = 0;
+  vi.stubGlobal("fetch", async (url: string) => {
+    const json = (status: number, body: unknown) => new Response(JSON.stringify(body), { status });
+    if (url.endsWith("/api/v1/uploads")) return json(201, { id: "abcdefghjkmnpqrs", url: "https://bucket.test/u/x", method: "PUT", headers: {} });
+    if (url.startsWith("https://bucket.test/")) return new Response(null, { status: 200 });
+    calls++;
+    return calls === 1 ? json(200, checked) : json(422, { detail: "the file is not a preset" });
+  });
+  render(<PresetForm catalog={catalog} onSaved={() => {}} />);
+  const input = screen.getByLabelText("Preset file (optional)");
+
+  fireEvent.change(input, { target: { files: [new File(["x"], "good.ini")] } });
+  expect(await screen.findByText("Nozzle temperature")).toBeDefined();
+  fireEvent.change(input, { target: { files: [new File(["<html>"], "bad.html")] } });
+  expect(await screen.findByText(/^The file is not a preset/)).toBeDefined();
+  expect(screen.getByText("Nozzle temperature")).toBeDefined();
+
+  fireEvent.click(screen.getByRole("button", { name: "Remove file" }));
+  expect(screen.queryByText("Nozzle temperature")).toBeNull();
+});
+
+test("while a file is checked, the field keeps the focus and stays usable", async () => {
+  let finish: (r: Response) => void = () => {};
+  vi.stubGlobal("fetch", async (url: string) => {
+    if (url.endsWith("/api/v1/uploads")) {
+      return new Response(JSON.stringify({ id: "abcdefghjkmnpqrs", url: "https://bucket.test/u/x", method: "PUT", headers: {} }), { status: 201 });
+    }
+    if (url.startsWith("https://bucket.test/")) return new Response(null, { status: 200 });
+    return new Promise<Response>((resolve) => (finish = resolve));
+  });
+  render(<PresetForm catalog={catalog} onSaved={() => {}} />);
+  const input = screen.getByLabelText("Preset file (optional)") as HTMLInputElement;
+  input.focus();
+
+  fireEvent.change(input, { target: { files: [new File(["x"], "my.ini")] } });
+  await waitFor(() => expect(screen.getByRole("status").textContent).toBe("Checking the file…"));
+  expect(input.disabled).toBe(false);
+  expect(document.activeElement).toBe(input);
+  finish(new Response(JSON.stringify(checked), { status: 200 }));
+  expect(await screen.findByText("Nozzle temperature")).toBeDefined();
 });
 
 test("an empty or too large file gets a plain reason without a call to the API", () => {
