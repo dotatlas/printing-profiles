@@ -87,7 +87,7 @@ export function ThemeSwitch() {
           aria-label={label}
           aria-pressed={current === theme}
           onClick={() => applyTheme(theme)}
-          className="rounded p-2 text-muted hover:text-ink aria-pressed:bg-line aria-pressed:text-ink"
+          className="rounded p-1.5 text-muted hover:text-ink aria-pressed:bg-line aria-pressed:text-ink sm:p-2"
         >
           {icon}
         </button>

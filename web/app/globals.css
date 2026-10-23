@@ -19,6 +19,18 @@
   --color-line: light-dark(#e4e4e7, #27272a);
   /* Both values have a contrast of at least 5:1 on their page color. */
   --color-accent: light-dark(#296aa2, #3e86bf);
+  /* Text on an accent fill: white on the light accent, the page color on the dark one (both at least 4.5:1). */
+  --color-on-accent: light-dark(#ffffff, #09090b);
+  /* A pale tint of the accent for areas (the current item, a badge), with its own ink for text on it. */
+  --color-accent-tint: light-dark(#eaf2f9, #12283b);
+  --color-accent-ink: light-dark(#1d4f7a, #b4d5f0);
+  /* One step off the page, for panels. */
+  --color-raised: light-dark(#f7f8fa, #131316);
+  /* Borders of controls, one step stronger than line. */
+  --color-control: light-dark(#c9cbd1, #3f3f46);
+  /* Errors: the text color, and a pale tint for the box around an error. */
+  --color-danger: light-dark(#b42318, #f2786d);
+  --color-danger-tint: light-dark(#fdeceb, #2a1513);
 }
 
 @layer base {
@@ -30,5 +42,146 @@
   :focus-visible {
     outline: 2px solid var(--color-accent);
     outline-offset: 2px;
+  }
+  ::selection {
+    background-color: var(--color-accent-tint);
+    color: var(--color-accent-ink);
+  }
+  input,
+  textarea {
+    caret-color: var(--color-accent);
+  }
+}
+
+/* The shared controls of the sign-in and account screens. Every button presses in, so the page feels the click. */
+@layer components {
+  .btn {
+    display: inline-flex;
+    height: 2.5rem;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    border-radius: 0.625rem;
+    padding-inline: 1rem;
+    font-size: 0.875rem;
+    font-weight: 500;
+    text-decoration: none;
+    white-space: nowrap;
+    transition:
+      transform 160ms cubic-bezier(0.23, 1, 0.32, 1),
+      background-color 150ms ease,
+      border-color 150ms ease;
+  }
+  .btn:active:not(:disabled) {
+    transform: scale(0.97);
+  }
+  /* A disabled control stays readable: a quiet fill with the muted ink, never a faded copy of the live one. */
+  .btn:disabled {
+    cursor: not-allowed;
+    border-color: transparent;
+    background-color: var(--color-line);
+    color: var(--color-muted);
+  }
+  .btn-primary {
+    background-color: var(--color-accent);
+    color: var(--color-on-accent);
+  }
+  .btn-primary:hover:not(:disabled) {
+    background-color: color-mix(in oklab, var(--color-accent), var(--color-ink) 14%);
+  }
+  .btn-secondary {
+    border: 1px solid var(--color-control);
+    background-color: var(--color-page);
+    color: var(--color-ink);
+  }
+  .btn-secondary:hover:not(:disabled) {
+    background-color: var(--color-raised);
+  }
+  .btn-danger {
+    border: 1px solid var(--color-control);
+    background-color: var(--color-page);
+    color: var(--color-danger);
+  }
+  .btn-danger:hover:not(:disabled) {
+    background-color: var(--color-danger-tint);
+  }
+  /* 16px text stops phones from zooming into the field. */
+  .field {
+    height: 2.5rem;
+    width: 100%;
+    border-radius: 0.625rem;
+    border: 1px solid var(--color-control);
+    background-color: var(--color-page);
+    padding-inline: 0.75rem;
+    font-size: 1rem;
+    color: var(--color-ink);
+  }
+  .field::placeholder {
+    color: var(--color-muted);
+  }
+  .field[aria-invalid="true"] {
+    border-color: var(--color-danger);
+  }
+  .panel {
+    border-radius: 1rem;
+    background-color: var(--color-raised);
+    padding: 1rem;
+  }
+  /* The account menu floats, so it is the one element with a shadow. It grows from its button (top right) and
+     closes faster than it opens: slow where the visitor looks, quick where the system answers. */
+  .account-menu {
+    box-shadow: 0 8px 24px -6px color-mix(in oklab, var(--color-ink) 18%, transparent);
+    transform-origin: top right;
+    transition:
+      opacity 150ms cubic-bezier(0.23, 1, 0.32, 1),
+      transform 150ms cubic-bezier(0.23, 1, 0.32, 1),
+      visibility 0s;
+  }
+  .account-menu[data-open="false"] {
+    visibility: hidden;
+    opacity: 0;
+    transform: scale(0.97) translateY(-2px);
+    transition-duration: 100ms, 100ms, 0s;
+    transition-delay: 0s, 0s, 100ms;
+  }
+  .menu-item {
+    display: block;
+    border-radius: 0.5rem;
+    padding: 0.5rem 0.75rem;
+    font-size: 0.875rem;
+    color: var(--color-ink);
+    text-decoration: none;
+  }
+  .menu-item:hover,
+  .menu-item:focus-visible {
+    background-color: var(--color-raised);
+  }
+  .menu-item:disabled {
+    color: var(--color-muted);
+  }
+  /* "Saved" shows, then fades, so the panel says it worked without a lasting badge. */
+  .saved-stamp {
+    animation: saved-fade 2.4s ease forwards;
+  }
+  @keyframes saved-fade {
+    0%,
+    70% {
+      opacity: 1;
+    }
+    100% {
+      opacity: 0;
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .account-menu,
+    .account-menu[data-open="false"] {
+      transform: none;
+    }
+    .btn {
+      transition: background-color 150ms ease;
+    }
+    .btn:active:not(:disabled) {
+      transform: none;
+    }
   }
 }

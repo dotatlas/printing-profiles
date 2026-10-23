@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
 import type { ReactNode } from "react";
+import { AccountMenu } from "../components/account-menu";
+import { SessionProvider } from "../components/session";
 import { themeScript } from "../components/theme";
 import { ThemeSwitch } from "../components/theme-switch";
 import "./globals.css";
@@ -23,23 +25,29 @@ export default function RootLayout({ children }: { children: ReactNode }) {
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />
       </head>
       <body className="flex min-h-dvh flex-col bg-page text-ink">
-        <header className="border-b border-line">
-          <div className="mx-auto flex max-w-3xl items-center justify-between gap-4 px-4 py-3">
-            <Link href="/" className="flex items-center gap-2 font-semibold text-ink no-underline">
-              {/* The link text names the site, so the logo has an empty alt text. */}
-              <Image src={logo} alt="" className="size-8" loading="eager" />
-              Printing Profiles
-            </Link>
-            <ThemeSwitch />
-          </div>
-        </header>
-        <main className="mx-auto w-full max-w-3xl flex-1 px-4 py-10">{children}</main>
-        <footer className="border-t border-line">
-          <p className="mx-auto max-w-3xl px-4 py-6 text-sm text-muted">
-            Open source under the AGPL-3.0 license ·{" "}
-            <a href="https://github.com/dotatlas/printing-profiles">Source code</a>
-          </p>
-        </footer>
+        <SessionProvider>
+          <header className="border-b border-line">
+            <div className="mx-auto flex max-w-3xl items-center justify-between gap-4 px-4 py-3">
+              <Link href="/" className="flex shrink-0 items-center gap-2 font-semibold text-ink no-underline">
+                {/* The link text names the site, so the logo has an empty alt text. On a phone the name is for screen
+                    readers only, so the account control and the theme switch fit beside the logo. */}
+                <Image src={logo} alt="" className="size-8" loading="eager" />
+                <span className="sr-only sm:not-sr-only">Printing Profiles</span>
+              </Link>
+              <div className="flex items-center gap-2">
+                <AccountMenu />
+                <ThemeSwitch />
+              </div>
+            </div>
+          </header>
+          <main className="mx-auto w-full max-w-3xl flex-1 px-4 py-10">{children}</main>
+          <footer className="border-t border-line">
+            <p className="mx-auto max-w-3xl px-4 py-6 text-sm text-muted">
+              Open source under the AGPL-3.0 license ·{" "}
+              <a href="https://github.com/dotatlas/printing-profiles">Source code</a>
+            </p>
+          </footer>
+        </SessionProvider>
       </body>
     </html>
   );
