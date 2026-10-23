@@ -5,7 +5,7 @@ on:
     branches: [main]
   pull_request:
 
-# The jobs only read the code. No job gets a secret.
+# The jobs only read the code. Only the images job can write, to the container registry.
 permissions:
   contents: read
 
@@ -96,3 +96,36 @@ jobs:
         run: npm run gen:api && git diff --exit-code lib/api-types.ts
       - name: Known vulnerabilities in the runtime packages
         run: npm audit --omit=dev --audit-level=high
+
+  images:
+    name: Images
+    # Only a push to main publishes images, and only after both checks pass. Pull requests never get here.
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: [api, web]
+    # shortcut: x86_64 images only, use ubuntu-24.04-arm if production runs on arm64.
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    # This job is the only one that can write: it pushes to the GitHub container registry.
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Sign in to the GitHub container registry
+        run: echo "$GITHUB_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build and push the API and site images
+        # Each image gets the commit tag (to pin or roll back) and the main tag (the newest).
+        run: |
+          repo="ghcr.io/${GITHUB_REPOSITORY,,}"
+          source="org.opencontainers.image.source=https://github.com/$GITHUB_REPOSITORY"
+          docker build --label "$source" -t "$repo/api:$GITHUB_SHA" -t "$repo/api:main" api
+          docker build --label "$source" --build-arg SITE_URL=https://printingprofiles.com \
+            -t "$repo/web:$GITHUB_SHA" -t "$repo/web:main" web
+          for image in api web; do
+            docker push "$repo/$image:$GITHUB_SHA"
+            docker push "$repo/$image:main"
+          done

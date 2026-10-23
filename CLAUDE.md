@@ -74,3 +74,4 @@ docker build -t printing-profiles-web ./web       # site image (port 3000; set A
 - **CI** (`.github/workflows/ci.yml`) runs these checks on every push to `main` and every pull request, with a read-only token:
   - Third-party actions are pinned by full commit SHA, with the version in a comment. Pick releases that are at least 7 days old.
   - Tools that CI downloads (govulncheck, Redocly, the Bruno CLI) are pinned to exact versions.
+  - On a push to `main`, after both checks pass, the `Images` job builds the API and site images and pushes them to `ghcr.io/<owner>/<repo>/{api,web}`, tagged with the commit and `main`. It is the only job with write access (`packages: write`).
