@@ -157,6 +157,43 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/auth/{provider}/start": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Start a sign-in with GitHub or Discord
+         * @description A browser navigation, not a fetch. It sets a short state cookie and redirects to the provider with a state and a PKCE S256 challenge. With link=1, a signed-in user adds the provider to the account.
+         */
+        get: operations["startOAuthSignIn"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/{provider}/callback": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Finish a sign-in (the provider sends the browser here) */
+        get: operations["finishOAuthSignIn"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/auth/fake/start": {
         parameters: {
             query?: never;
@@ -290,6 +327,8 @@ export interface components {
         };
     };
     parameters: {
+        /** @description A provider is available only when the API has an OAuth app for it. */
+        Provider: "github" | "discord";
         /** @description The path on the site to go back to after sign-in. Anything that is not a plain path becomes "/". */
         ReturnPath: string;
         /** @description Search words. Every word must appear, in any order, and case does not matter. */
@@ -321,6 +360,7 @@ export type Session = components['schemas']['Session'];
 export type SessionList = components['schemas']['SessionList'];
 export type Problem = components['schemas']['Problem'];
 export type ResponseProblem = components['responses']['Problem'];
+export type ParameterProvider = components['parameters']['Provider'];
 export type ParameterReturnPath = components['parameters']['ReturnPath'];
 export type ParameterSearch = components['parameters']['Search'];
 export type ParameterCursor = components['parameters']['Cursor'];
@@ -550,6 +590,62 @@ export interface operations {
             default: components["responses"]["Problem"];
         };
     };
+    startOAuthSignIn: {
+        parameters: {
+            query?: {
+                /** @description The path on the site to go back to after sign-in. Anything that is not a plain path becomes "/". */
+                return?: components["parameters"]["ReturnPath"];
+                /** @description Set to 1 to add this provider to the signed-in user. */
+                link?: "1";
+            };
+            header?: never;
+            path: {
+                /** @description A provider is available only when the API has an OAuth app for it. */
+                provider: components["parameters"]["Provider"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description To the provider's sign-in page. */
+            302: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            default: components["responses"]["Problem"];
+        };
+    };
+    finishOAuthSignIn: {
+        parameters: {
+            query: {
+                state: string;
+                code?: string;
+            };
+            header?: never;
+            path: {
+                /** @description A provider is available only when the API has an OAuth app for it. */
+                provider: components["parameters"]["Provider"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description To the return path on the site, signed in. On an error, to /signin?error=cancelled|provider|link-session, or /settings?error=linked-elsewhere. */
+            303: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            default: components["responses"]["Problem"];
+        };
+    };
     fakeSignIn: {
         parameters: {
             query: {
@@ -585,5 +681,7 @@ type ReadonlyArray<T> = [
 ] extends [
     unknown[]
 ] ? Readonly<Exclude<T, undefined>> : Readonly<Exclude<T, undefined>[]>;
+export const pathsApiV1AuthProviderStartGetParametersQueryLinkValues: ReadonlyArray<FlattenedDeepRequired<paths>["/api/v1/auth/{provider}/start"]["get"]["parameters"]["query"]["link"]> = ["1"];
 export const materialTypeValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["MaterialType"]> = ["PLA", "PETG", "ABS", "ASA", "TPU", "PA", "PC"];
 export const materialDiameter_mmValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["Material"]["diameter_mm"]> = [1.75, 2.85];
+export const componentsParametersProviderValues: ReadonlyArray<FlattenedDeepRequired<components>["parameters"]["Provider"]> = ["github", "discord"];

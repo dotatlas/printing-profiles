@@ -14,7 +14,16 @@ type Config struct {
 	Env         string // "dev" or "prod"
 	Port        int    // the TCP port that the API listens on
 	SiteOrigin  string // the only origin that CORS allows, for example https://printingprofiles.com
+	APIOrigin   string // the API's own origin, for the OAuth callback URLs
 	DatabaseURL string // the PostgreSQL connection URL
+	GitHub      OAuthClient
+	Discord     OAuthClient
+}
+
+// OAuthClient is the client ID and secret of one OAuth app. A provider is on only when both are set.
+type OAuthClient struct {
+	ID     string
+	Secret string
 }
 
 // Load reads the settings with getenv and checks them. main calls it with os.Getenv, and it returns all errors together.
@@ -24,6 +33,7 @@ func Load(getenv func(string) string) (Config, error) {
 		Env:         "dev",
 		Port:        8080,
 		SiteOrigin:  "http://localhost:3000",
+		APIOrigin:   "http://localhost:8080",
 		DatabaseURL: "postgres://printing:printing@localhost:5432/printing?sslmode=disable", // the docker compose database
 	}
 	var errs []error
@@ -44,18 +54,10 @@ func Load(getenv func(string) string) (Config, error) {
 		}
 	}
 
-	origin := getenv("SITE_ORIGIN")
-	switch {
-	case origin == "" && cfg.Env == "prod":
-		errs = append(errs, errors.New("SITE_ORIGIN must be set in prod"))
-	case origin != "":
-		o, err := parseOrigin(origin, cfg.Env == "prod")
-		if err != nil {
-			errs = append(errs, fmt.Errorf("SITE_ORIGIN: %w", err))
-		} else {
-			cfg.SiteOrigin = o
-		}
-	}
+	cfg.SiteOrigin, errs = readOrigin(getenv, "SITE_ORIGIN", cfg.SiteOrigin, cfg.Env == "prod", errs)
+	cfg.APIOrigin, errs = readOrigin(getenv, "API_ORIGIN", cfg.APIOrigin, cfg.Env == "prod", errs)
+	cfg.GitHub, errs = readOAuthClient(getenv, "GITHUB", errs)
+	cfg.Discord, errs = readOAuthClient(getenv, "DISCORD", errs)
 	dbURL := getenv("DATABASE_URL")
 	switch {
 	case dbURL == "" && cfg.Env == "prod":
@@ -71,7 +73,33 @@ func Load(getenv func(string) string) (Config, error) {
 	return cfg, errors.Join(errs...)
 }
 
-// parseOrigin checks that s is an origin and returns it in lower case. Load uses it for SITE_ORIGIN.
+// readOrigin reads the origin in the variable name, or keeps def when it is not set. In prod, the variable is required. Load calls it.
+func readOrigin(getenv func(string) string, name, def string, prod bool, errs []error) (string, []error) {
+	v := getenv(name)
+	switch {
+	case v == "" && prod:
+		return def, append(errs, fmt.Errorf("%s must be set in prod", name))
+	case v == "":
+		return def, errs
+	}
+	o, err := parseOrigin(v, prod)
+	if err != nil {
+		return def, append(errs, fmt.Errorf("%s: %w", name, err))
+	}
+	return o, errs
+}
+
+// readOAuthClient reads <prefix>_CLIENT_ID and <prefix>_CLIENT_SECRET, which must both be set or both be empty. Load calls it.
+func readOAuthClient(getenv func(string) string, prefix string, errs []error) (OAuthClient, []error) {
+	c := OAuthClient{ID: getenv(prefix + "_CLIENT_ID"), Secret: getenv(prefix + "_CLIENT_SECRET")}
+	if (c.ID == "") != (c.Secret == "") {
+		// Do not put the values in the error: one of them is a secret.
+		return OAuthClient{}, append(errs, fmt.Errorf("set both %s_CLIENT_ID and %s_CLIENT_SECRET, or neither", prefix, prefix))
+	}
+	return c, errs
+}
+
+// parseOrigin checks that s is an origin and returns it in lower case. readOrigin uses it.
 func parseOrigin(s string, httpsOnly bool) (string, error) {
 	u, err := url.Parse(s)
 	if err != nil {

@@ -183,6 +183,59 @@ paths:
           $ref: "#/components/responses/Problem"
         default:
           $ref: "#/components/responses/Problem"
+  /api/v1/auth/{provider}/start:
+    get:
+      operationId: startOAuthSignIn
+      summary: Start a sign-in with GitHub or Discord
+      description: >-
+        A browser navigation, not a fetch. It sets a short state cookie and redirects to the provider with a
+        state and a PKCE S256 challenge. With link=1, a signed-in user adds the provider to the account.
+      security: [] # Public: it is the sign-in. With link=1 it needs the session.
+      parameters:
+        - $ref: "#/components/parameters/Provider"
+        - $ref: "#/components/parameters/ReturnPath"
+        - name: link
+          in: query
+          description: Set to 1 to add this provider to the signed-in user.
+          schema:
+            type: string
+            enum: ["1"]
+      responses:
+        "302":
+          description: To the provider's sign-in page.
+        "401":
+          $ref: "#/components/responses/Problem"
+        "404":
+          $ref: "#/components/responses/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
+  /api/v1/auth/{provider}/callback:
+    get:
+      operationId: finishOAuthSignIn
+      summary: Finish a sign-in (the provider sends the browser here)
+      security: []
+      parameters:
+        - $ref: "#/components/parameters/Provider"
+        - name: state
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: code
+          in: query
+          schema:
+            type: string
+      responses:
+        "303":
+          description: >-
+            To the return path on the site, signed in. On an error, to /signin?error=cancelled|provider|link-session,
+            or /settings?error=linked-elsewhere.
+        "400":
+          $ref: "#/components/responses/Problem"
+        "404":
+          $ref: "#/components/responses/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
   /api/v1/auth/fake/start:
     get:
       operationId: fakeSignIn
@@ -218,6 +271,14 @@ components:
       name: __Host-session
       description: The session cookie that a sign-in sets. It is HttpOnly, so scripts cannot read it.
   parameters:
+    Provider:
+      name: provider
+      in: path
+      required: true
+      description: A provider is available only when the API has an OAuth app for it.
+      schema:
+        type: string
+        enum: [github, discord]
     ReturnPath:
       name: return
       in: query

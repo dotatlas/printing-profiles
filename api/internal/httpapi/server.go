@@ -18,10 +18,15 @@ type Server struct {
 	Log *slog.Logger
 	Cfg config.Config
 	DB  *db.Queries // the sqlc queries; nil in tests that do not touch the database
+
+	providers map[string]*oauthProvider // the OAuth providers; Handler makes them from Cfg, and tests put fakes here
 }
 
 // Handler returns all routes inside the middleware. Serve runs it, and the tests call it directly.
 func (s *Server) Handler() http.Handler {
+	if s.providers == nil {
+		s.providers = providersFrom(s.Cfg)
+	}
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /api/v1/health", s.handleHealth)
 	mux.HandleFunc("GET /api/v1/printers", s.handlePrinters)
@@ -32,6 +37,8 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("DELETE /api/v1/me/sessions/{id}", s.handleDeleteSession)
 	mux.HandleFunc("POST /api/v1/auth/signout", s.handleSignOut)
 	mux.HandleFunc("POST /api/v1/auth/signout-all", s.handleSignOutAll)
+	mux.HandleFunc("GET /api/v1/auth/{provider}/start", s.handleOAuthStart)
+	mux.HandleFunc("GET /api/v1/auth/{provider}/callback", s.handleOAuthCallback)
 	if s.Cfg.Env == "dev" {
 		// The fake provider signs in without a password or a provider, so it must never exist in prod.
 		mux.HandleFunc("GET /api/v1/auth/fake/start", s.handleFakeSignIn)

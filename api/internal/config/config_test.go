@@ -16,7 +16,7 @@ func TestLoadUsesDevDefaultsWhenNothingIsSet(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := Config{Env: "dev", Port: 8080, SiteOrigin: "http://localhost:3000",
+	want := Config{Env: "dev", Port: 8080, SiteOrigin: "http://localhost:3000", APIOrigin: "http://localhost:8080",
 		DatabaseURL: "postgres://printing:printing@localhost:5432/printing?sslmode=disable"}
 	if cfg != want {
 		t.Errorf("got %+v, want %+v", cfg, want)
@@ -26,14 +26,17 @@ func TestLoadUsesDevDefaultsWhenNothingIsSet(t *testing.T) {
 func TestLoadReadsEveryVariable(t *testing.T) {
 	cfg, err := Load(env(map[string]string{
 		"ENV": "prod", "PORT": "9000", "SITE_ORIGIN": "https://printingprofiles.com",
-		"DATABASE_URL": "postgres://u:p@db.example:5432/pp?sslmode=require",
+		"API_ORIGIN": "https://API.printingprofiles.com/", "DATABASE_URL": "postgres://u:p@db.example:5432/pp?sslmode=require",
+		"GITHUB_CLIENT_ID": "gh-id", "GITHUB_CLIENT_SECRET": "gh-secret",
+		"DISCORD_CLIENT_ID": "dc-id", "DISCORD_CLIENT_SECRET": "dc-secret",
 	}))
 
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := Config{Env: "prod", Port: 9000, SiteOrigin: "https://printingprofiles.com",
-		DatabaseURL: "postgres://u:p@db.example:5432/pp?sslmode=require"}
+	want := Config{Env: "prod", Port: 9000, SiteOrigin: "https://printingprofiles.com", APIOrigin: "https://api.printingprofiles.com",
+		DatabaseURL: "postgres://u:p@db.example:5432/pp?sslmode=require",
+		GitHub:      OAuthClient{ID: "gh-id", Secret: "gh-secret"}, Discord: OAuthClient{ID: "dc-id", Secret: "dc-secret"}}
 	if cfg != want {
 		t.Errorf("got %+v, want %+v", cfg, want)
 	}
@@ -96,5 +99,27 @@ func TestLoadNeverPutsTheDatabaseURLInErrors(t *testing.T) {
 	}
 	if strings.Contains(err.Error(), "secret-password") {
 		t.Errorf("error %q shows the password", err)
+	}
+}
+
+func TestLoadNeedsBothOAuthValuesAndNeverPrintsTheSecret(t *testing.T) {
+	_, err := Load(env(map[string]string{"GITHUB_CLIENT_SECRET": "very-secret-value"}))
+
+	if err == nil || !strings.Contains(err.Error(), "GITHUB_CLIENT_ID") {
+		t.Fatalf("err = %v, want a message about GITHUB_CLIENT_ID", err)
+	}
+	if strings.Contains(err.Error(), "very-secret-value") {
+		t.Error("the error must not contain the secret")
+	}
+}
+
+func TestLoadNeedsAnHTTPSAPIOriginInProd(t *testing.T) {
+	base := map[string]string{"ENV": "prod", "SITE_ORIGIN": "https://printingprofiles.com", "DATABASE_URL": "postgres://u:p@h/d"}
+	if _, err := Load(env(base)); err == nil || !strings.Contains(err.Error(), "API_ORIGIN must be set") {
+		t.Errorf("missing API_ORIGIN: err = %v", err)
+	}
+	base["API_ORIGIN"] = "http://api.printingprofiles.com"
+	if _, err := Load(env(base)); err == nil || !strings.Contains(err.Error(), "API_ORIGIN") {
+		t.Errorf("http API_ORIGIN in prod: err = %v", err)
 	}
 }

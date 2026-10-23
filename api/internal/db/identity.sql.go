@@ -8,7 +8,56 @@ package db
 import (
 	"context"
 	"time"
+
+	"github.com/jackc/pgx/v5/pgtype"
 )
+
+const addIdentity = `-- name: AddIdentity :exec
+INSERT INTO identities (user_id, provider, provider_user_id, email)
+VALUES ($1, $2, $3, $4)
+`
+
+type AddIdentityParams struct {
+	UserID         int64
+	Provider       string
+	ProviderUserID string
+	Email          string
+}
+
+func (q *Queries) AddIdentity(ctx context.Context, arg AddIdentityParams) error {
+	_, err := q.db.Exec(ctx, addIdentity,
+		arg.UserID,
+		arg.Provider,
+		arg.ProviderUserID,
+		arg.Email,
+	)
+	return err
+}
+
+const createOAuthFlow = `-- name: CreateOAuthFlow :exec
+INSERT INTO oauth_flows (state_hash, provider, verifier, return_path, link_user_id, expires_at)
+VALUES ($1, $2, $3, $4,
+        $5, now() + interval '10 minutes')
+`
+
+type CreateOAuthFlowParams struct {
+	StateHash  []byte
+	Provider   string
+	Verifier   string
+	ReturnPath string
+	LinkUserID pgtype.Int8
+}
+
+func (q *Queries) CreateOAuthFlow(ctx context.Context, arg CreateOAuthFlowParams) error {
+	_, err := q.db.Exec(ctx, createOAuthFlow,
+		arg.StateHash,
+		arg.Provider,
+		arg.Verifier,
+		arg.ReturnPath,
+		arg.LinkUserID,
+	)
+	return err
+}
 
 const createSession = `-- name: CreateSession :exec
 INSERT INTO sessions (token_hash, user_id, user_agent, expires_at)
@@ -47,6 +96,15 @@ func (q *Queries) CreateUserWithIdentity(ctx context.Context, arg CreateUserWith
 	var user_id int64
 	err := row.Scan(&user_id)
 	return user_id, err
+}
+
+const deleteExpiredOAuthFlows = `-- name: DeleteExpiredOAuthFlows :exec
+DELETE FROM oauth_flows WHERE expires_at <= now()
+`
+
+func (q *Queries) DeleteExpiredOAuthFlows(ctx context.Context) error {
+	_, err := q.db.Exec(ctx, deleteExpiredOAuthFlows)
+	return err
 }
 
 const deleteExpiredSessions = `-- name: DeleteExpiredSessions :exec
@@ -172,6 +230,31 @@ func (q *Queries) ListSessions(ctx context.Context, userID int64) ([]ListSession
 		return nil, err
 	}
 	return items, nil
+}
+
+const takeOAuthFlow = `-- name: TakeOAuthFlow :one
+DELETE FROM oauth_flows
+WHERE state_hash = $1 AND provider = $2 AND expires_at > now()
+RETURNING verifier, return_path, link_user_id
+`
+
+type TakeOAuthFlowParams struct {
+	StateHash []byte
+	Provider  string
+}
+
+type TakeOAuthFlowRow struct {
+	Verifier   string
+	ReturnPath string
+	LinkUserID pgtype.Int8
+}
+
+// DELETE ... RETURNING makes each state work one time, even when two callbacks arrive together.
+func (q *Queries) TakeOAuthFlow(ctx context.Context, arg TakeOAuthFlowParams) (TakeOAuthFlowRow, error) {
+	row := q.db.QueryRow(ctx, takeOAuthFlow, arg.StateHash, arg.Provider)
+	var i TakeOAuthFlowRow
+	err := row.Scan(&i.Verifier, &i.ReturnPath, &i.LinkUserID)
+	return i, err
 }
 
 const touchSession = `-- name: TouchSession :exec

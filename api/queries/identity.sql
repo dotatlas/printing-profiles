@@ -45,3 +45,21 @@ DELETE FROM sessions WHERE id = sqlc.arg(id) AND user_id = sqlc.arg(user_id);
 
 -- name: DeleteUserSessions :exec
 DELETE FROM sessions WHERE user_id = sqlc.arg(user_id);
+
+-- name: CreateOAuthFlow :exec
+INSERT INTO oauth_flows (state_hash, provider, verifier, return_path, link_user_id, expires_at)
+VALUES (sqlc.arg(state_hash), sqlc.arg(provider), sqlc.arg(verifier), sqlc.arg(return_path),
+        sqlc.narg(link_user_id), now() + interval '10 minutes');
+
+-- name: TakeOAuthFlow :one
+-- DELETE ... RETURNING makes each state work one time, even when two callbacks arrive together.
+DELETE FROM oauth_flows
+WHERE state_hash = sqlc.arg(state_hash) AND provider = sqlc.arg(provider) AND expires_at > now()
+RETURNING verifier, return_path, link_user_id;
+
+-- name: DeleteExpiredOAuthFlows :exec
+DELETE FROM oauth_flows WHERE expires_at <= now();
+
+-- name: AddIdentity :exec
+INSERT INTO identities (user_id, provider, provider_user_id, email)
+VALUES (sqlc.arg(user_id), sqlc.arg(provider), sqlc.arg(provider_user_id), sqlc.arg(email));
