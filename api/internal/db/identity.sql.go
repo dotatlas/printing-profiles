@@ -133,6 +133,26 @@ func (q *Queries) DeleteExpiredSessions(ctx context.Context, userID int64) error
 	return err
 }
 
+const deleteIdentity = `-- name: DeleteIdentity :execrows
+DELETE FROM identities i
+WHERE i.id = $1 AND i.user_id = $2
+  AND EXISTS (SELECT 1 FROM identities o WHERE o.user_id = $2 AND o.id <> $1)
+`
+
+type DeleteIdentityParams struct {
+	ID     int64
+	UserID int64
+}
+
+// shortcut: two parallel deletes can remove the last two identities; it needs two clicks at the same moment, so use a locked transaction if it ever happens.
+func (q *Queries) DeleteIdentity(ctx context.Context, arg DeleteIdentityParams) (int64, error) {
+	result, err := q.db.Exec(ctx, deleteIdentity, arg.ID, arg.UserID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
 const deleteOldEmailTokens = `-- name: DeleteOldEmailTokens :exec
 DELETE FROM email_tokens WHERE expires_at <= now() - interval '1 day'
 `
@@ -198,6 +218,25 @@ func (q *Queries) FindUserByIdentity(ctx context.Context, arg FindUserByIdentity
 	return user_id, err
 }
 
+const finishOnboarding = `-- name: FinishOnboarding :execrows
+UPDATE users SET handle = $1, terms_accepted_at = now()
+WHERE id = $2 AND handle IS NULL
+`
+
+type FinishOnboardingParams struct {
+	Handle pgtype.Text
+	ID     int64
+}
+
+// Only a user with no handle can onboard, so a handle never changes here.
+func (q *Queries) FinishOnboarding(ctx context.Context, arg FinishOnboardingParams) (int64, error) {
+	result, err := q.db.Exec(ctx, finishOnboarding, arg.Handle, arg.ID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
 const getSession = `-- name: GetSession :one
 SELECT s.id, s.user_id, s.last_seen_at, coalesce(u.handle, '')::text AS handle, u.display_name
 FROM sessions s
@@ -247,6 +286,44 @@ func (q *Queries) HitRateLimit(ctx context.Context, arg HitRateLimitParams) (int
 	return count, err
 }
 
+const listIdentities = `-- name: ListIdentities :many
+SELECT id, provider, CASE WHEN provider = 'email' THEN provider_user_id ELSE '' END::text AS email, created_at
+FROM identities WHERE user_id = $1
+ORDER BY created_at, id
+`
+
+type ListIdentitiesRow struct {
+	ID        int64
+	Provider  string
+	Email     string
+	CreatedAt time.Time
+}
+
+func (q *Queries) ListIdentities(ctx context.Context, userID int64) ([]ListIdentitiesRow, error) {
+	rows, err := q.db.Query(ctx, listIdentities, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListIdentitiesRow
+	for rows.Next() {
+		var i ListIdentitiesRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Provider,
+			&i.Email,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listSessions = `-- name: ListSessions :many
 SELECT id, user_agent, created_at, last_seen_at FROM sessions
 WHERE user_id = $1 AND expires_at > now() AND last_seen_at > now() - interval '7 days'
@@ -283,6 +360,20 @@ func (q *Queries) ListSessions(ctx context.Context, userID int64) ([]ListSession
 		return nil, err
 	}
 	return items, nil
+}
+
+const setDisplayName = `-- name: SetDisplayName :exec
+UPDATE users SET display_name = $1 WHERE id = $2
+`
+
+type SetDisplayNameParams struct {
+	DisplayName string
+	ID          int64
+}
+
+func (q *Queries) SetDisplayName(ctx context.Context, arg SetDisplayNameParams) error {
+	_, err := q.db.Exec(ctx, setDisplayName, arg.DisplayName, arg.ID)
+	return err
 }
 
 const takeOAuthFlow = `-- name: TakeOAuthFlow :one

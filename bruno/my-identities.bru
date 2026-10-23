@@ -1,0 +1,24 @@
+meta {
+  name: my sign-in methods
+  type: http
+  seq: 13
+}
+
+get {
+  url: {{baseUrl}}/api/v1/me/identities
+  body: none
+  auth: none
+}
+
+headers {
+  Cookie: __Host-session={{session}}
+}
+
+script:post-response {
+  bru.setVar("identityId", res.body.items && res.body.items[0] ? res.body.items[0].id : 0);
+}
+
+assert {
+  res.status: eq 200
+  res.body.items: isArray
+}

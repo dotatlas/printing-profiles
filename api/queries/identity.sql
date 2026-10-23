@@ -85,3 +85,22 @@ RETURNING email, return_path;
 
 -- name: DeleteOldEmailTokens :exec
 DELETE FROM email_tokens WHERE expires_at <= now() - interval '1 day';
+
+-- name: FinishOnboarding :execrows
+-- Only a user with no handle can onboard, so a handle never changes here.
+UPDATE users SET handle = sqlc.arg(handle), terms_accepted_at = now()
+WHERE id = sqlc.arg(id) AND handle IS NULL;
+
+-- name: SetDisplayName :exec
+UPDATE users SET display_name = sqlc.arg(display_name) WHERE id = sqlc.arg(id);
+
+-- name: ListIdentities :many
+SELECT id, provider, CASE WHEN provider = 'email' THEN provider_user_id ELSE '' END::text AS email, created_at
+FROM identities WHERE user_id = sqlc.arg(user_id)
+ORDER BY created_at, id;
+
+-- name: DeleteIdentity :execrows
+-- shortcut: two parallel deletes can remove the last two identities; it needs two clicks at the same moment, so use a locked transaction if it ever happens.
+DELETE FROM identities i
+WHERE i.id = sqlc.arg(id) AND i.user_id = sqlc.arg(user_id)
+  AND EXISTS (SELECT 1 FROM identities o WHERE o.user_id = sqlc.arg(user_id) AND o.id <> sqlc.arg(id));

@@ -86,6 +86,58 @@ export interface paths {
         delete?: never;
         options?: never;
         head?: never;
+        /** Change the signed-in user's display name */
+        patch: operations["updateMe"];
+        trace?: never;
+    };
+    "/api/v1/me/onboarding": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Choose a handle and accept the terms (one time) */
+        post: operations["finishOnboarding"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/identities": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List the ways the signed-in user can sign in */
+        get: operations["listMyIdentities"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/identities/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Remove a sign-in method (never the last one) */
+        delete: operations["deleteMyIdentity"];
+        options?: never;
+        head?: never;
         patch?: never;
         trace?: never;
     };
@@ -323,6 +375,16 @@ export interface components {
             /** @description True until the user picks a handle and accepts the terms. */
             needs_onboarding: boolean;
         };
+        Identity: {
+            /** Format: int64 */
+            id: number;
+            /** @enum {string} */
+            provider: "github" | "discord" | "email" | "fake";
+            /** @description Only for the email method. */
+            email?: string;
+            /** Format: date-time */
+            created_at: string;
+        };
         Session: {
             /** Format: int64 */
             id: number;
@@ -396,6 +458,7 @@ export type PrinterPage = components['schemas']['PrinterPage'];
 export type MaterialPage = components['schemas']['MaterialPage'];
 export type SlicerPage = components['schemas']['SlicerPage'];
 export type Me = components['schemas']['Me'];
+export type Identity = components['schemas']['Identity'];
 export type Session = components['schemas']['Session'];
 export type SessionList = components['schemas']['SessionList'];
 export type Problem = components['schemas']['Problem'];
@@ -543,6 +606,133 @@ export interface operations {
                 };
             };
             401: components["responses"]["Problem"];
+            default: components["responses"]["Problem"];
+        };
+    };
+    updateMe: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    display_name: string;
+                };
+            };
+        };
+        responses: {
+            /** @description The user, with the new name. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Me"];
+                };
+            };
+            400: components["responses"]["Problem"];
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            default: components["responses"]["Problem"];
+        };
+    };
+    finishOnboarding: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    handle: string;
+                    /** @constant */
+                    accept_terms: true;
+                };
+            };
+        };
+        responses: {
+            /** @description The user, with the handle. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Me"];
+                };
+            };
+            400: components["responses"]["Problem"];
+            401: components["responses"]["Problem"];
+            /** @description The handle is taken, or this account already has one. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    listMyIdentities: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The sign-in methods, the oldest first. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: components["schemas"]["Identity"][];
+                    };
+                };
+            };
+            401: components["responses"]["Problem"];
+            default: components["responses"]["Problem"];
+        };
+    };
+    deleteMyIdentity: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Removed. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            /** @description It is the user's only way to sign in. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
             default: components["responses"]["Problem"];
         };
     };
@@ -801,4 +991,5 @@ type ReadonlyArray<T> = [
 export const pathsApiV1AuthProviderStartGetParametersQueryLinkValues: ReadonlyArray<FlattenedDeepRequired<paths>["/api/v1/auth/{provider}/start"]["get"]["parameters"]["query"]["link"]> = ["1"];
 export const materialTypeValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["MaterialType"]> = ["PLA", "PETG", "ABS", "ASA", "TPU", "PA", "PC"];
 export const materialDiameter_mmValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["Material"]["diameter_mm"]> = [1.75, 2.85];
+export const identityProviderValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["Identity"]["provider"]> = ["github", "discord", "email", "fake"];
 export const componentsParametersProviderValues: ReadonlyArray<FlattenedDeepRequired<components>["parameters"]["Provider"]> = ["github", "discord"];

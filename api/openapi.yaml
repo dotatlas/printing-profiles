@@ -111,6 +111,37 @@ paths:
         default:
           $ref: "#/components/responses/Problem"
   /api/v1/me:
+    patch:
+      operationId: updateMe
+      summary: Change the signed-in user's display name
+      security: [{session: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [display_name]
+              properties:
+                display_name:
+                  type: string
+                  maxLength: 60
+      responses:
+        "200":
+          description: The user, with the new name.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Me"
+        "400":
+          $ref: "#/components/responses/Problem"
+        "401":
+          $ref: "#/components/responses/Problem"
+        "403":
+          $ref: "#/components/responses/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
     get:
       operationId: getMe
       summary: Show who is signed in
@@ -124,6 +155,98 @@ paths:
                 $ref: "#/components/schemas/Me"
         "401":
           $ref: "#/components/responses/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
+  /api/v1/me/onboarding:
+    post:
+      operationId: finishOnboarding
+      summary: Choose a handle and accept the terms (one time)
+      security: [{session: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [handle, accept_terms]
+              properties:
+                handle:
+                  type: string
+                  pattern: "^[a-z0-9]+(-[a-z0-9]+)*$"
+                  minLength: 3
+                  maxLength: 30
+                accept_terms:
+                  type: boolean
+                  const: true
+      responses:
+        "200":
+          description: The user, with the handle.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Me"
+        "400":
+          $ref: "#/components/responses/Problem"
+        "401":
+          $ref: "#/components/responses/Problem"
+        "409":
+          description: The handle is taken, or this account already has one.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
+  /api/v1/me/identities:
+    get:
+      operationId: listMyIdentities
+      summary: List the ways the signed-in user can sign in
+      security: [{session: []}]
+      responses:
+        "200":
+          description: The sign-in methods, the oldest first.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Identity"
+        "401":
+          $ref: "#/components/responses/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
+  /api/v1/me/identities/{id}:
+    delete:
+      operationId: deleteMyIdentity
+      summary: Remove a sign-in method (never the last one)
+      security: [{session: []}]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        "204":
+          description: Removed.
+        "401":
+          $ref: "#/components/responses/Problem"
+        "403":
+          $ref: "#/components/responses/Problem"
+        "404":
+          $ref: "#/components/responses/Problem"
+        "409":
+          description: It is the user's only way to sign in.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
         default:
           $ref: "#/components/responses/Problem"
   /api/v1/me/sessions:
@@ -547,6 +670,22 @@ components:
         needs_onboarding:
           type: boolean
           description: True until the user picks a handle and accepts the terms.
+    Identity:
+      type: object
+      required: [id, provider, created_at]
+      properties:
+        id:
+          type: integer
+          format: int64
+        provider:
+          type: string
+          enum: [github, discord, email, fake]
+        email:
+          type: string
+          description: Only for the email method.
+        created_at:
+          type: string
+          format: date-time
     Session:
       type: object
       required: [id, user_agent, created_at, last_seen_at, current]

@@ -1,0 +1,20 @@
+meta {
+  name: remove the last sign-in method
+  type: http
+  seq: 14
+}
+
+delete {
+  url: {{baseUrl}}/api/v1/me/identities/{{identityId}}
+  body: none
+  auth: none
+}
+
+headers {
+  Cookie: __Host-session={{session}}
+  Origin: {{siteOrigin}}
+}
+
+assert {
+  res.status: eq 409
+}

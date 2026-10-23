@@ -5,13 +5,18 @@ meta {
 }
 
 get {
-  url: {{baseUrl}}/api/v1/auth/fake/start?login=bruno&return=/presets
+  url: {{baseUrl}}/api/v1/auth/fake/start?login={{login}}&return=/presets
   body: none
   auth: none
 }
 
 settings {
   followRedirects: false
+}
+
+script:pre-request {
+  // A new test user on every run, so the onboarding handle is always free.
+  bru.setVar("login", "bruno-" + Date.now().toString(36));
 }
 
 script:post-response {

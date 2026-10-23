@@ -1,0 +1,25 @@
+meta {
+  name: onboarding
+  type: http
+  seq: 11
+}
+
+post {
+  url: {{baseUrl}}/api/v1/me/onboarding
+  body: json
+  auth: none
+}
+
+headers {
+  Cookie: __Host-session={{session}}
+  Origin: {{siteOrigin}}
+}
+
+body:json {
+  {"handle": "{{login}}", "accept_terms": true}
+}
+
+assert {
+  res.status: eq 200
+  res.body.needs_onboarding: eq false
+}
