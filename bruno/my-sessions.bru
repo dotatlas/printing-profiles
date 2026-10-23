@@ -1,0 +1,26 @@
+meta {
+  name: my sessions
+  type: http
+  seq: 10
+}
+
+get {
+  url: {{baseUrl}}/api/v1/me/sessions
+  body: none
+  auth: none
+}
+
+headers {
+  Cookie: __Host-session={{session}}
+}
+
+assert {
+  res.status: eq 200
+  res.body.items: isArray
+}
+
+tests {
+  test("marks the current session", function () {
+    expect(res.body.items.filter((s) => s.current)).to.have.lengthOf(1);
+  });
+}

@@ -5,6 +5,8 @@
 package db
 
 import (
+	"time"
+
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
@@ -12,6 +14,23 @@ type Brand struct {
 	ID   int64
 	Name string
 	Slug string
+}
+
+type EmailToken struct {
+	TokenHash  []byte
+	Email      string
+	ReturnPath string
+	ExpiresAt  time.Time
+	UsedAt     pgtype.Timestamptz
+}
+
+type Identity struct {
+	ID             int64
+	UserID         int64
+	Provider       string
+	ProviderUserID string
+	Email          string
+	CreatedAt      time.Time
 }
 
 type Material struct {
@@ -30,6 +49,15 @@ type MaterialColor struct {
 	Hex        string
 }
 
+type OauthFlow struct {
+	StateHash  []byte
+	Provider   string
+	Verifier   string
+	ReturnPath string
+	LinkUserID pgtype.Int8
+	ExpiresAt  time.Time
+}
+
 type Printer struct {
 	ID      int64
 	BrandID int64
@@ -37,8 +65,32 @@ type Printer struct {
 	Slug    string
 }
 
+type RateLimit struct {
+	Key         []byte
+	WindowStart time.Time
+	Count       int32
+}
+
+type Session struct {
+	ID         int64
+	TokenHash  []byte
+	UserID     int64
+	UserAgent  string
+	CreatedAt  time.Time
+	LastSeenAt time.Time
+	ExpiresAt  time.Time
+}
+
 type Slicer struct {
 	ID   int64
 	Name string
 	Slug string
+}
+
+type User struct {
+	ID              int64
+	Handle          pgtype.Text
+	DisplayName     string
+	TermsAcceptedAt pgtype.Timestamptz
+	CreatedAt       time.Time
 }

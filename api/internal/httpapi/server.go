@@ -27,9 +27,19 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /api/v1/printers", s.handlePrinters)
 	mux.HandleFunc("GET /api/v1/materials", s.handleMaterials)
 	mux.HandleFunc("GET /api/v1/slicers", s.handleSlicers)
+	mux.HandleFunc("GET /api/v1/me", s.handleMe)
+	mux.HandleFunc("GET /api/v1/me/sessions", s.handleSessions)
+	mux.HandleFunc("DELETE /api/v1/me/sessions/{id}", s.handleDeleteSession)
+	mux.HandleFunc("POST /api/v1/auth/signout", s.handleSignOut)
+	mux.HandleFunc("POST /api/v1/auth/signout-all", s.handleSignOutAll)
+	if s.Cfg.Env == "dev" {
+		// The fake provider signs in without a password or a provider, so it must never exist in prod.
+		mux.HandleFunc("GET /api/v1/auth/fake/start", s.handleFakeSignIn)
+	}
 
 	// The last wrapper runs first. requestID is last, so every answer and log line has an ID.
 	var h http.Handler = problemsForUnmatched(mux)
+	h = s.loadSession(h)
 	h = limitBody(h)
 	h = s.cors(h)
 	h = securityHeaders(h)

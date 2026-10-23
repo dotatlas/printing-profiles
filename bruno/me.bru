@@ -1,0 +1,20 @@
+meta {
+  name: me
+  type: http
+  seq: 9
+}
+
+get {
+  url: {{baseUrl}}/api/v1/me
+  body: none
+  auth: none
+}
+
+headers {
+  Cookie: __Host-session={{session}}
+}
+
+assert {
+  res.status: eq 200
+  res.body.needs_onboarding: isBoolean
+}

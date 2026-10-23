@@ -108,8 +108,124 @@ paths:
           $ref: "#/components/responses/Problem"
         default:
           $ref: "#/components/responses/Problem"
+  /api/v1/me:
+    get:
+      operationId: getMe
+      summary: Show who is signed in
+      security: [{session: []}]
+      responses:
+        "200":
+          description: The signed-in user.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Me"
+        "401":
+          $ref: "#/components/responses/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
+  /api/v1/me/sessions:
+    get:
+      operationId: listMySessions
+      summary: List the signed-in user's sessions
+      security: [{session: []}]
+      responses:
+        "200":
+          description: The sessions that are still valid, the most recent first.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SessionList"
+        "401":
+          $ref: "#/components/responses/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
+  /api/v1/me/sessions/{id}:
+    delete:
+      operationId: deleteMySession
+      summary: End one of the signed-in user's sessions
+      security: [{session: []}]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        "204":
+          description: The session is ended. When it is the current one, the cookie is cleared too.
+        "401":
+          $ref: "#/components/responses/Problem"
+        "404":
+          $ref: "#/components/responses/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
+  /api/v1/auth/signout:
+    post:
+      operationId: signOut
+      summary: End the session of this request
+      security: [{session: []}, {}]
+      responses:
+        "204":
+          description: Signed out (also when no one was signed in). The cookie is cleared.
+        default:
+          $ref: "#/components/responses/Problem"
+  /api/v1/auth/signout-all:
+    post:
+      operationId: signOutEverywhere
+      summary: End every session of the signed-in user
+      security: [{session: []}]
+      responses:
+        "204":
+          description: Every session is ended. The cookie is cleared.
+        "401":
+          $ref: "#/components/responses/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
+  /api/v1/auth/fake/start:
+    get:
+      operationId: fakeSignIn
+      summary: Sign in as a test user (development only)
+      description: This route exists only when ENV is dev. It signs in with no provider, for tests and local work.
+      security: [] # Public: it is the sign-in.
+      parameters:
+        - name: login
+          in: query
+          required: true
+          schema:
+            type: string
+            pattern: "^[a-z0-9]+(-[a-z0-9]+)*$"
+            maxLength: 40
+        - $ref: "#/components/parameters/ReturnPath"
+      responses:
+        "303":
+          description: Signed in. The session cookie is set, and Location is the return path on the site.
+          headers:
+            Set-Cookie:
+              description: The session cookie.
+              schema:
+                type: string
+        "400":
+          $ref: "#/components/responses/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
 components:
+  securitySchemes:
+    session:
+      type: apiKey
+      in: cookie
+      name: __Host-session
+      description: The session cookie that a sign-in sets. It is HttpOnly, so scripts cannot read it.
   parameters:
+    ReturnPath:
+      name: return
+      in: query
+      description: The path on the site to go back to after sign-in. Anything that is not a plain path becomes "/".
+      schema:
+        type: string
+        maxLength: 200
+        default: /
     Search:
       name: q
       in: query
@@ -258,6 +374,45 @@ components:
         next_cursor:
           type: string
           description: Send it as cursor to get the next page. It is missing on the last page.
+    Me:
+      type: object
+      required: [handle, display_name, needs_onboarding]
+      properties:
+        handle:
+          type: string
+          description: Empty until onboarding.
+        display_name:
+          type: string
+        needs_onboarding:
+          type: boolean
+          description: True until the user picks a handle and accepts the terms.
+    Session:
+      type: object
+      required: [id, user_agent, created_at, last_seen_at, current]
+      properties:
+        id:
+          type: integer
+          format: int64
+        user_agent:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        last_seen_at:
+          type: string
+          format: date-time
+          description: Updated at most once an hour.
+        current:
+          type: boolean
+          description: True for the session that made this request.
+    SessionList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/Session"
     Problem:
       type: object
       required: [type, title, status]

@@ -1,0 +1,15 @@
+meta {
+  name: delete a session while signed out
+  type: http
+  seq: 13
+}
+
+delete {
+  url: {{baseUrl}}/api/v1/me/sessions/999999999
+  body: none
+  auth: none
+}
+
+assert {
+  res.status: eq 401
+}

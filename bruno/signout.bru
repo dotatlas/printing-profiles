@@ -1,0 +1,19 @@
+meta {
+  name: sign out
+  type: http
+  seq: 11
+}
+
+post {
+  url: {{baseUrl}}/api/v1/auth/signout
+  body: none
+  auth: none
+}
+
+headers {
+  Cookie: __Host-session={{session}}
+}
+
+assert {
+  res.status: eq 204
+}

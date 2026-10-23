@@ -10,3 +10,7 @@ sql:
         package: db
         out: internal/db
         sql_package: pgx/v5
+        overrides:
+          # NOT NULL timestamps become time.Time, not pgtype.Timestamptz.
+          - db_type: timestamptz
+            go_type: time.Time

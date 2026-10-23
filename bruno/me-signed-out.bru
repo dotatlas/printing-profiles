@@ -1,0 +1,16 @@
+meta {
+  name: me signed out
+  type: http
+  seq: 7
+}
+
+get {
+  url: {{baseUrl}}/api/v1/me
+  body: none
+  auth: none
+}
+
+assert {
+  res.status: eq 401
+  res.headers["content-type"]: eq application/problem+json
+}

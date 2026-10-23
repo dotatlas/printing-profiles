@@ -72,6 +72,111 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/me": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Show who is signed in */
+        get: operations["getMe"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/sessions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List the signed-in user's sessions */
+        get: operations["listMySessions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/sessions/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** End one of the signed-in user's sessions */
+        delete: operations["deleteMySession"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/signout": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** End the session of this request */
+        post: operations["signOut"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/signout-all": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** End every session of the signed-in user */
+        post: operations["signOutEverywhere"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/fake/start": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Sign in as a test user (development only)
+         * @description This route exists only when ENV is dev. It signs in with no provider, for tests and local work.
+         */
+        get: operations["fakeSignIn"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -134,6 +239,30 @@ export interface components {
             /** @description Send it as cursor to get the next page. It is missing on the last page. */
             next_cursor?: string;
         };
+        Me: {
+            /** @description Empty until onboarding. */
+            handle: string;
+            display_name: string;
+            /** @description True until the user picks a handle and accepts the terms. */
+            needs_onboarding: boolean;
+        };
+        Session: {
+            /** Format: int64 */
+            id: number;
+            user_agent: string;
+            /** Format: date-time */
+            created_at: string;
+            /**
+             * Format: date-time
+             * @description Updated at most once an hour.
+             */
+            last_seen_at: string;
+            /** @description True for the session that made this request. */
+            current: boolean;
+        };
+        SessionList: {
+            items: components["schemas"]["Session"][];
+        };
         Problem: {
             /**
              * @description Always "about:blank" for now; the title and status tell the error.
@@ -161,6 +290,8 @@ export interface components {
         };
     };
     parameters: {
+        /** @description The path on the site to go back to after sign-in. Anything that is not a plain path becomes "/". */
+        ReturnPath: string;
         /** @description Search words. Every word must appear, in any order, and case does not matter. */
         Search: string;
         /** @description The next_cursor value from the page before. Leave it out for the first page. */
@@ -185,8 +316,12 @@ export type Slicer = components['schemas']['Slicer'];
 export type PrinterPage = components['schemas']['PrinterPage'];
 export type MaterialPage = components['schemas']['MaterialPage'];
 export type SlicerPage = components['schemas']['SlicerPage'];
+export type Me = components['schemas']['Me'];
+export type Session = components['schemas']['Session'];
+export type SessionList = components['schemas']['SessionList'];
 export type Problem = components['schemas']['Problem'];
 export type ResponseProblem = components['responses']['Problem'];
+export type ParameterReturnPath = components['parameters']['ReturnPath'];
 export type ParameterSearch = components['parameters']['Search'];
 export type ParameterCursor = components['parameters']['Cursor'];
 export type ParameterLimit = components['parameters']['Limit'];
@@ -304,6 +439,138 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["SlicerPage"];
                 };
+            };
+            400: components["responses"]["Problem"];
+            default: components["responses"]["Problem"];
+        };
+    };
+    getMe: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The signed-in user. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Me"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            default: components["responses"]["Problem"];
+        };
+    };
+    listMySessions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The sessions that are still valid, the most recent first. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SessionList"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            default: components["responses"]["Problem"];
+        };
+    };
+    deleteMySession: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The session is ended. When it is the current one, the cookie is cleared too. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            default: components["responses"]["Problem"];
+        };
+    };
+    signOut: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Signed out (also when no one was signed in). The cookie is cleared. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    signOutEverywhere: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Every session is ended. The cookie is cleared. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Problem"];
+            default: components["responses"]["Problem"];
+        };
+    };
+    fakeSignIn: {
+        parameters: {
+            query: {
+                login: string;
+                /** @description The path on the site to go back to after sign-in. Anything that is not a plain path becomes "/". */
+                return?: components["parameters"]["ReturnPath"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Signed in. The session cookie is set, and Location is the return path on the site. */
+            303: {
+                headers: {
+                    /** @description The session cookie. */
+                    "Set-Cookie"?: string;
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             400: components["responses"]["Problem"];
             default: components["responses"]["Problem"];
