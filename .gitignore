@@ -1,6 +1,7 @@
 # Secrets and local environment (commit .env.example only)
 .env
 .env.*
+*.env
 !.env.example
 
 # Go build output
