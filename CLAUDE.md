@@ -68,6 +68,12 @@ docker compose -f deploy/compose.yml config --quiet   # check the production sta
   - Validate input at the API boundary.
   - Check authorization on every write.
   - Never store passwords (sign-in is GitHub or Discord OAuth, or a one-time email link).
+  - Sign-in and sessions:
+    - Store tokens only as SHA-256 hashes. The session cookie is `__Host-session` (HttpOnly, Secure, SameSite=Lax).
+    - Find users by (provider, provider user ID), never by email.
+    - Return paths go through `safeReturnPath`.
+    - Every POST, PATCH and DELETE needs the site's `Origin` and a JSON body (`checkWrites`).
+    - The fake provider and the log mailer exist only with `ENV=dev`.
   - Never log tokens, session IDs or personal data.
   - Validate uploads by their content, never their file name.
 - **Deploy** (`deploy/`):

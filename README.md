@@ -15,6 +15,11 @@ go -C api run . serve      # then open http://localhost:8080/api/v1/printers
 go -C api test ./...       # needs the database; add -short to skip the integration tests
 ```
 
+Sign-in in dev needs no OAuth app or mail server:
+
+- Open `http://localhost:8080/api/v1/auth/fake/start?login=alice` to sign in as a test user. This route exists only with `ENV=dev`.
+- Email sign-in links go to the API's log instead of an inbox, unless `SMTP_HOST` is set.
+
 ## Run the site locally
 
 Needs Node.js 24 or newer. Start the API first: the home page reads the catalog from it (`API_URL`, by default `http://localhost:8080`).
