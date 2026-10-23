@@ -13,12 +13,11 @@ import {
   signOutEverywhere,
   signOutOthers,
   updateDisplayName,
-  welcomePath,
 } from "../lib/account";
 import type { Identity, Me, Session } from "../lib/api-types";
 import { describeDevice, formatDate, timeAgo } from "../lib/format";
 import { Notice, ProviderMark, providerName } from "./account-ui";
-import { useSession } from "./session";
+import { useMember, useSession } from "./session";
 
 // Section is one settings area: its title and description on the left, its panel on the right (stacked on a phone).
 function Section({ id, title, description, children }: { id: string; title: string; description: string; children: ReactNode }) {
@@ -352,14 +351,8 @@ function SessionsPanel({ onSignedOutEverywhere }: { onSignedOutEverywhere: () =>
 export function Settings() {
   const router = useRouter();
   const params = useSearchParams();
-  const { state, refresh } = useSession();
-
-  useEffect(() => {
-    if (state.status === "signed-out") router.replace("/signin?return=%2Fsettings");
-    if (state.status === "signed-in" && state.me.needs_onboarding) router.replace(welcomePath("/settings"));
-  }, [state, router]);
-
-  const me = state.status === "signed-in" && !state.me.needs_onboarding ? state.me : null;
+  const { refresh } = useSession();
+  const me = useMember("/settings");
 
   return (
     <>

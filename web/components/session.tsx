@@ -1,7 +1,8 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { createContext, type ReactNode, useCallback, useContext, useEffect, useState } from "react";
-import { getMe } from "../lib/account";
+import { getMe, welcomePath } from "../lib/account";
 import type { Me } from "../lib/api-types";
 
 // SessionState is what the site knows about the visitor: still asking, signed out, or the signed-in user.
@@ -44,4 +45,17 @@ export function SessionProvider({ children }: { children: ReactNode }) {
 // useSession gives the session state and refresh. The account menu and the account pages use it.
 export function useSession(): SessionValue {
   return useContext(SessionContext);
+}
+
+// useMember gives the signed-in user who has a handle, or null while the site still asks. It sends a signed-out
+// visitor to sign-in and a new user to onboarding, both with path as the way back. The account and preset pages
+// that need a member call it.
+export function useMember(path: string): Me | null {
+  const router = useRouter();
+  const { state } = useSession();
+  useEffect(() => {
+    if (state.status === "signed-out") router.replace(`/signin?return=${encodeURIComponent(path)}`);
+    if (state.status === "signed-in" && state.me.needs_onboarding) router.replace(welcomePath(path));
+  }, [state, router, path]);
+  return state.status === "signed-in" && !state.me.needs_onboarding ? state.me : null;
 }

@@ -23,3 +23,13 @@ export async function listFirst<P extends ListPath>(path: P): Promise<Items<P>> 
   const page: { items: Items<P> } = await res.json();
   return page.items;
 }
+
+// loadCatalog gets the printers, filaments and slicers for the filters and the preset form, in one parallel step.
+export async function loadCatalog() {
+  const [printers, materials, slicers] = await Promise.all([
+    listFirst("/api/v1/printers"),
+    listFirst("/api/v1/materials"),
+    listFirst("/api/v1/slicers"),
+  ]);
+  return { printers, materials, slicers };
+}

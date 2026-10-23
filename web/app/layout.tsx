@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
-import type { ReactNode } from "react";
+import { type ReactNode, Suspense } from "react";
 import { AccountMenu } from "../components/account-menu";
 import { SessionProvider } from "../components/session";
 import { themeScript } from "../components/theme";
@@ -41,7 +41,11 @@ export default function RootLayout({ children }: { children: ReactNode }) {
                 </Link>
               </nav>
               <div className="flex items-center gap-2">
-                <AccountMenu />
+                {/* The menu reads the path. A page whose path is known only at request time gets the menu's
+                    loading space in its prerendered shell. */}
+                <Suspense fallback={<div className="h-10 w-20" aria-hidden="true" />}>
+                  <AccountMenu />
+                </Suspense>
               </div>
             </div>
           </header>

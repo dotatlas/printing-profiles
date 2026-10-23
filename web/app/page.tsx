@@ -24,9 +24,12 @@ export default function HomePage() {
       <p className="mt-3 max-w-prose text-muted">
         Find settings that print well on your exact printer, with your filament and your slicer.
       </p>
-      <p className="mt-6">
+      <p className="mt-6 flex flex-wrap gap-3">
         <Link href="/presets" className="btn btn-primary">
           Browse presets
+        </Link>
+        <Link href="/presets/new" className="btn btn-secondary">
+          Share a preset
         </Link>
       </p>
       <Suspense fallback={<CatalogSkeleton />}>

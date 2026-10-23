@@ -4,22 +4,15 @@ import { redirect } from "next/navigation";
 import { cache } from "react";
 import { Notice } from "../../components/account-ui";
 import { BrowseFilters, NoMatches, PresetList, setupLabel } from "../../components/preset-list";
-import { listFirst } from "../../lib/api";
+import { loadCatalog } from "../../lib/api";
 import { browseFilters, browsePath, cleanBrowseQuery, listPresets } from "../../lib/presets";
 
 // The page waits for the API before it answers. Link-preview bots then get real redirects; browsers get the page
 // shell at once, and the redirect follows in the browser.
 export const instant = false;
 
-// catalog reads the three catalog lists once per request. The metadata and the page share it.
-const catalog = cache(async () => {
-  const [printers, materials, slicers] = await Promise.all([
-    listFirst("/api/v1/printers"),
-    listFirst("/api/v1/materials"),
-    listFirst("/api/v1/slicers"),
-  ]);
-  return { printers, materials, slicers };
-});
+// catalog reads the catalog once per request. The metadata and the page share it.
+const catalog = cache(loadCatalog);
 
 // generateMetadata names the filters in the title, so the tab and a shared link say which presets they show.
 export async function generateMetadata({ searchParams }: PageProps<"/presets">): Promise<Metadata> {
@@ -42,8 +35,15 @@ export default async function BrowsePage({ searchParams }: PageProps<"/presets">
 
   return (
     <>
-      <h1 className="text-2xl font-semibold tracking-tight">Presets</h1>
-      <p className="mt-2 text-muted">Pick your setup to see the presets made for it.</p>
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight">Presets</h1>
+          <p className="mt-2 text-muted">Pick your setup to see the presets made for it.</p>
+        </div>
+        <Link href="/presets/new" className="btn btn-secondary">
+          Share a preset
+        </Link>
+      </div>
       <div className="mt-8">
         <BrowseFilters catalog={lists} query={query} />
       </div>
