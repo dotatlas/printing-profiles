@@ -11,7 +11,7 @@
     "gen:api": "openapi-typescript ../api/openapi.yaml -o lib/api-types.ts --enum-values --root-types --root-types-no-schema-prefix"
   },
   "dependencies": {
-    "next": "16.4.0",
+    "next": "16.4.2",
     "react": "19.3.0",
     "react-dom": "19.3.0"
   },
