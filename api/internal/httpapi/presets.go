@@ -42,7 +42,12 @@ const idAlphabet = "abcdefghijkmnpqrstuvwxyz23456789"
 
 // newPublicID returns 8 random characters from idAlphabet (40 bits). createPreset tries again when one is taken.
 func newPublicID() string {
-	b := make([]byte, 8)
+	return randomID(8)
+}
+
+// randomID gives n random characters of idAlphabet. newPublicID uses it for presets, and the uploads for their IDs.
+func randomID(n int) string {
+	b := make([]byte, n)
 	_, _ = rand.Read(b) // In Go 1.24 and newer, crypto/rand.Read does not return an error.
 	for i := range b {
 		b[i] = idAlphabet[b[i]%32] // 256 is a multiple of 32, so every character is equally likely.

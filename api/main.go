@@ -18,6 +18,7 @@ import (
 	"github.com/dotatlas/printing-profiles/api/internal/db"
 	"github.com/dotatlas/printing-profiles/api/internal/httpapi"
 	"github.com/dotatlas/printing-profiles/api/internal/mail"
+	"github.com/dotatlas/printing-profiles/api/internal/storage"
 	"github.com/dotatlas/printing-profiles/api/migrations"
 )
 
@@ -77,6 +78,9 @@ func serve(log *slog.Logger) error {
 
 	log.Info("listening", "port", cfg.Port, "env", cfg.Env, "site_origin", cfg.SiteOrigin)
 	srv := &httpapi.Server{Log: log, Cfg: cfg, DB: db.New(pool), Mail: mailSender(cfg, log)}
+	if srv.Uploads, srv.Files, err = buckets(cfg); err != nil {
+		return err
+	}
 	return httpapi.Serve(ctx, ln, srv.Handler())
 }
 
@@ -105,6 +109,24 @@ func migrate(log *slog.Logger) error {
 	}
 	log.Info("database is up to date", "applied", len(results))
 	return nil
+}
+
+// buckets gives the uploads and the files bucket from the R2 settings, or none: then the upload routes answer 503.
+// serve calls it.
+func buckets(cfg config.Config) (httpapi.FileStore, httpapi.FileStore, error) {
+	r := cfg.R2
+	if r.Endpoint == "" {
+		return nil, nil, nil
+	}
+	uploads, err := storage.NewBucket(r.Endpoint, r.UploadsBucket, r.AccessKeyID, r.SecretAccessKey)
+	if err != nil {
+		return nil, nil, err
+	}
+	files, err := storage.NewBucket(r.Endpoint, r.FilesBucket, r.AccessKeyID, r.SecretAccessKey)
+	if err != nil {
+		return nil, nil, err
+	}
+	return uploads, files, nil
 }
 
 // mailSender returns the SMTP relay from the settings. Without one, dev writes emails to the log, and prod has no

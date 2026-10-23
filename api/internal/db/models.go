@@ -137,6 +137,25 @@ type Slicer struct {
 	Slug string
 }
 
+type Upload struct {
+	ID            int64
+	PublicID      string
+	OwnerID       int64
+	Kind          string
+	Size          int32
+	Status        string
+	Reason        string
+	Sha256        string
+	FileKey       string
+	Slicer        string
+	FileKind      string
+	SlicerVersion string
+	Settings      []byte
+	Removed       []string
+	CreatedAt     time.Time
+	CompletedAt   pgtype.Timestamptz
+}
+
 type User struct {
 	ID              int64
 	Handle          pgtype.Text

@@ -1,0 +1,25 @@
+meta {
+  name: ask for an upload (no storage here)
+  type: http
+  seq: 23
+}
+
+post {
+  url: {{baseUrl}}/api/v1/uploads
+  body: json
+  auth: none
+}
+
+headers {
+  Cookie: __Host-session={{session}}
+  Origin: {{siteOrigin}}
+}
+
+body:json {
+  {"kind": "preset_file", "size": 383}
+}
+
+assert {
+  res.status: eq 503
+  res.body.detail: eq file uploads are not set up yet
+}

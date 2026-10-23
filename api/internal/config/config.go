@@ -21,6 +21,18 @@ type Config struct {
 	HashKey     string // the HMAC key for rate-limit keys, so stored IPs and addresses cannot be read back
 	ProxyHops   int    // how many proxies in front add to X-Forwarded-For; 0 means use the socket address
 	SMTP        SMTP   // the relay for sign-in emails; with no Host, prod has no email sign-in and dev logs the emails
+	R2          R2     // the file buckets; with no Endpoint, prod has no uploads and dev keeps files in memory
+}
+
+// R2 is the S3-compatible storage for uploads: a private bucket that the browser uploads to, and a public bucket of
+// checked files that FilesOrigin serves.
+type R2 struct {
+	Endpoint        string // for example https://<account>.r2.cloudflarestorage.com
+	AccessKeyID     string
+	SecretAccessKey string
+	UploadsBucket   string
+	FilesBucket     string
+	FilesOrigin     string // the public origin of the files bucket, for example https://files.printingprofiles.com
 }
 
 // SMTP is the relay that sends the sign-in emails.
@@ -86,6 +98,7 @@ func Load(getenv func(string) string) (Config, error) {
 	}
 
 	cfg.SMTP, errs = readSMTP(getenv, errs)
+	cfg.R2, errs = readR2(getenv, errs)
 
 	if cfg.Env == "prod" {
 		cfg.ProxyHops = 1 // In prod, the host's ingress is the one proxy in front of the API.
@@ -147,6 +160,20 @@ func readSMTP(getenv func(string) string, errs []error) (SMTP, []error) {
 		errs = append(errs, errors.New("with SMTP_HOST set, MAIL_FROM, SMTP_USERNAME and SMTP_PASSWORD must be set too"))
 	}
 	return m, errs
+}
+
+// readR2 reads the R2_ variables and FILES_ORIGIN, which must all be set or all be empty. Load calls it.
+func readR2(getenv func(string) string, errs []error) (R2, []error) {
+	r := R2{Endpoint: getenv("R2_ENDPOINT"), AccessKeyID: getenv("R2_ACCESS_KEY_ID"), SecretAccessKey: getenv("R2_SECRET_ACCESS_KEY"),
+		UploadsBucket: getenv("R2_UPLOADS_BUCKET"), FilesBucket: getenv("R2_FILES_BUCKET"), FilesOrigin: getenv("FILES_ORIGIN")}
+	if r == (R2{}) {
+		return r, errs
+	}
+	if r.Endpoint == "" || r.AccessKeyID == "" || r.SecretAccessKey == "" || r.UploadsBucket == "" || r.FilesBucket == "" || r.FilesOrigin == "" {
+		// Do not put the values in the error: the access key is a secret.
+		return R2{}, append(errs, errors.New("set all of R2_ENDPOINT, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_UPLOADS_BUCKET, R2_FILES_BUCKET and FILES_ORIGIN, or none"))
+	}
+	return r, errs
 }
 
 // readOAuthClient reads <prefix>_CLIENT_ID and <prefix>_CLIENT_SECRET, which must both be set or both be empty. Load calls it.

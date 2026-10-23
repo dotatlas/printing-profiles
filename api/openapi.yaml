@@ -446,6 +446,91 @@ paths:
           $ref: "#/components/responses/Problem"
         default:
           $ref: "#/components/responses/Problem"
+  /api/v1/uploads:
+    post:
+      operationId: createUpload
+      summary: Get a one-time URL to send a preset file to (signed in, with a handle)
+      description: >-
+        The answer is a presigned PUT for exactly `size` bytes with the given headers, valid for 10 minutes. The
+        browser sends the file there, not to the API, then calls complete. The file type that the browser reports
+        is never used: the check reads the content.
+      security: [{session: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UploadCreate"
+      responses:
+        "201":
+          description: Where and how to send the file.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UploadTicket"
+        "400":
+          $ref: "#/components/responses/Problem"
+        "401":
+          $ref: "#/components/responses/Problem"
+        "403":
+          $ref: "#/components/responses/Problem"
+        "429":
+          $ref: "#/components/responses/Problem"
+        "503":
+          description: File storage is not set up on this server.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
+  /api/v1/uploads/{id}/complete:
+    post:
+      operationId: completeUpload
+      summary: Check an uploaded preset file and keep a clean copy (signed in, the uploader only)
+      description: >-
+        Reads the file from storage, finds the slicer and the kind from its content, removes printer connection
+        secrets (listed in `removed`) and stores the clean copy. A second call gives the same answer. Another
+        member's upload is a 404.
+      security: [{session: []}]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, pattern: "^[a-z2-9]{16}$" }
+      responses:
+        "200":
+          description: The checked file.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Upload"
+        "401":
+          $ref: "#/components/responses/Problem"
+        "403":
+          $ref: "#/components/responses/Problem"
+        "404":
+          $ref: "#/components/responses/Problem"
+        "409":
+          description: The file has not arrived in storage yet.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+        "422":
+          description: The file is not a supported preset, or not the signed size; `detail` says why.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+        "503":
+          description: File storage is not set up on this server.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
   /api/v1/auth/signout:
     post:
       operationId: signOut
@@ -963,6 +1048,55 @@ components:
         published_at:
           type: string
           format: date-time
+    UploadCreate:
+      type: object
+      required: [kind, size]
+      additionalProperties: false
+      properties:
+        kind:
+          type: string
+          enum: [preset_file]
+        size:
+          type: integer
+          minimum: 1
+          maximum: 1048576
+          description: The exact size of the file, in bytes. Storage refuses any other size.
+    UploadTicket:
+      type: object
+      required: [id, url, method, headers, expires_at]
+      properties:
+        id: { type: string, pattern: "^[a-z2-9]{16}$" }
+        url: { type: string, format: uri, description: The presigned URL. Send the file there with the method and headers. }
+        method: { type: string, enum: [PUT] }
+        headers:
+          type: object
+          additionalProperties: { type: string }
+        expires_at: { type: string, format: date-time }
+    KeySetting:
+      type: object
+      required: [id, label, value]
+      properties:
+        id: { type: string, example: layer_height }
+        label: { type: string, example: Layer height }
+        value: { type: string, example: "0.2" }
+        unit: { type: string, example: mm, description: Only on a plain number. }
+    Upload:
+      type: object
+      required: [id, status]
+      properties:
+        id: { type: string }
+        status: { type: string, enum: [ready] }
+        slicer: { type: string, enum: [prusaslicer, superslicer, orcaslicer], description: Bambu Studio files read as orcaslicer. }
+        kind: { type: string, enum: [print, filament, printer, config] }
+        slicer_version: { type: string }
+        settings:
+          type: array
+          items: { $ref: "#/components/schemas/KeySetting" }
+        removed:
+          type: array
+          description: Printer connection settings that were removed from the file, such as printhost_password.
+          items: { type: string }
+        file_url: { type: string, format: uri, description: The clean copy on the files origin. }
     PresetPage:
       type: object
       required: [items]

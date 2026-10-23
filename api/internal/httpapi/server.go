@@ -20,6 +20,10 @@ type Server struct {
 	Cfg  config.Config
 	DB   *db.Queries // the sqlc queries; nil in tests that do not touch the database
 	Mail mail.Sender // the sender of sign-in emails; nil means no email sign-in
+	// Uploads is the private bucket that the browser sends files to, and Files the public bucket of checked files.
+	// With either nil, the upload routes answer 503.
+	Uploads FileStore
+	Files   FileStore
 
 	providers map[string]*oauthProvider // the OAuth providers; Handler makes them from Cfg, and tests put fakes here
 }
@@ -47,6 +51,8 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /api/v1/presets/{id}", s.handleGetPreset)
 	mux.HandleFunc("PATCH /api/v1/presets/{id}", s.handleUpdatePreset)
 	mux.HandleFunc("DELETE /api/v1/presets/{id}", s.handleDeletePreset)
+	mux.HandleFunc("POST /api/v1/uploads", s.handleCreateUpload)
+	mux.HandleFunc("POST /api/v1/uploads/{id}/complete", s.handleCompleteUpload)
 	mux.HandleFunc("POST /api/v1/auth/signout", s.handleSignOut)
 	mux.HandleFunc("POST /api/v1/auth/signout-all", s.handleSignOutAll)
 	mux.HandleFunc("POST /api/v1/auth/signout-others", s.handleSignOutOthers)

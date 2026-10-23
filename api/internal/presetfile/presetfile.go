@@ -13,6 +13,9 @@ import (
 	"unicode/utf8"
 )
 
+// MaxSize is the largest preset file, in bytes. The upload route signs it as the largest upload.
+const MaxSize = maxSize
+
 const (
 	maxSize  = 1 << 20  // the largest preset file, in bytes
 	maxKeys  = 5000     // a PrusaSlicer print preset has about 200

@@ -1,0 +1,20 @@
+meta {
+  name: complete an upload (no storage here)
+  type: http
+  seq: 24
+}
+
+post {
+  url: {{baseUrl}}/api/v1/uploads/abcdefghjkmnpqrs/complete
+  body: none
+  auth: none
+}
+
+headers {
+  Cookie: __Host-session={{session}}
+  Origin: {{siteOrigin}}
+}
+
+assert {
+  res.status: eq 503
+}

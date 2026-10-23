@@ -232,6 +232,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/uploads": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Get a one-time URL to send a preset file to (signed in, with a handle)
+         * @description The answer is a presigned PUT for exactly `size` bytes with the given headers, valid for 10 minutes. The browser sends the file there, not to the API, then calls complete. The file type that the browser reports is never used: the check reads the content.
+         */
+        post: operations["createUpload"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/uploads/{id}/complete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Check an uploaded preset file and keep a clean copy (signed in, the uploader only)
+         * @description Reads the file from storage, finds the slicer and the kind from its content, removes printer connection secrets (listed in `removed`) and stores the clean copy. A second call gives the same answer. Another member's upload is a 404.
+         */
+        post: operations["completeUpload"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/auth/signout": {
         parameters: {
             query?: never;
@@ -514,6 +554,61 @@ export interface components {
             /** Format: date-time */
             published_at?: string;
         };
+        UploadCreate: {
+            /** @enum {string} */
+            kind: "preset_file";
+            /** @description The exact size of the file, in bytes. Storage refuses any other size. */
+            size: number;
+        };
+        UploadTicket: {
+            id: string;
+            /**
+             * Format: uri
+             * @description The presigned URL. Send the file there with the method and headers.
+             */
+            url: string;
+            /** @enum {string} */
+            method: "PUT";
+            headers: {
+                [key: string]: string;
+            };
+            /** Format: date-time */
+            expires_at: string;
+        };
+        KeySetting: {
+            /** @example layer_height */
+            id: string;
+            /** @example Layer height */
+            label: string;
+            /** @example 0.2 */
+            value: string;
+            /**
+             * @description Only on a plain number.
+             * @example mm
+             */
+            unit?: string;
+        };
+        Upload: {
+            id: string;
+            /** @enum {string} */
+            status: "ready";
+            /**
+             * @description Bambu Studio files read as orcaslicer.
+             * @enum {string}
+             */
+            slicer?: "prusaslicer" | "superslicer" | "orcaslicer";
+            /** @enum {string} */
+            kind?: "print" | "filament" | "printer" | "config";
+            slicer_version?: string;
+            settings?: components["schemas"]["KeySetting"][];
+            /** @description Printer connection settings that were removed from the file, such as printhost_password. */
+            removed?: string[];
+            /**
+             * Format: uri
+             * @description The clean copy on the files origin.
+             */
+            file_url?: string;
+        };
         PresetPage: {
             items: components["schemas"]["Preset"][];
             /** @description Send it as cursor to get the next page. It is missing on the last page. */
@@ -613,6 +708,10 @@ export type License = components['schemas']['License'];
 export type PresetCreate = components['schemas']['PresetCreate'];
 export type PresetUpdate = components['schemas']['PresetUpdate'];
 export type Preset = components['schemas']['Preset'];
+export type UploadCreate = components['schemas']['UploadCreate'];
+export type UploadTicket = components['schemas']['UploadTicket'];
+export type KeySetting = components['schemas']['KeySetting'];
+export type Upload = components['schemas']['Upload'];
 export type PresetPage = components['schemas']['PresetPage'];
 export type Me = components['schemas']['Me'];
 export type Identity = components['schemas']['Identity'];
@@ -1123,6 +1222,97 @@ export interface operations {
             default: components["responses"]["Problem"];
         };
     };
+    createUpload: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UploadCreate"];
+            };
+        };
+        responses: {
+            /** @description Where and how to send the file. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UploadTicket"];
+                };
+            };
+            400: components["responses"]["Problem"];
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            429: components["responses"]["Problem"];
+            /** @description File storage is not set up on this server. */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    completeUpload: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The checked file. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Upload"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            /** @description The file has not arrived in storage yet. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The file is not a supported preset, or not the signed size; `detail` says why. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description File storage is not set up on this server. */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
     signOut: {
         parameters: {
             query?: never;
@@ -1362,5 +1552,10 @@ export const licenseValues: ReadonlyArray<FlattenedDeepRequired<components>["sch
 export const presetCreateStatusValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["PresetCreate"]["status"]> = ["draft", "published"];
 export const presetUpdateStatusValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["PresetUpdate"]["status"]> = ["draft", "published"];
 export const presetStatusValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["Preset"]["status"]> = ["draft", "published"];
+export const uploadCreateKindValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["UploadCreate"]["kind"]> = ["preset_file"];
+export const uploadTicketMethodValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["UploadTicket"]["method"]> = ["PUT"];
+export const uploadStatusValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["Upload"]["status"]> = ["ready"];
+export const uploadSlicerValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["Upload"]["slicer"]> = ["prusaslicer", "superslicer", "orcaslicer"];
+export const uploadKindValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["Upload"]["kind"]> = ["print", "filament", "printer", "config"];
 export const identityProviderValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["Identity"]["provider"]> = ["github", "discord", "email", "fake"];
 export const componentsParametersProviderValues: ReadonlyArray<FlattenedDeepRequired<components>["parameters"]["Provider"]> = ["github", "discord"];

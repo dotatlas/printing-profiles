@@ -158,3 +158,23 @@ func TestLoadReadsSMTPAndNeedsItsLoginWhenAHostIsSet(t *testing.T) {
 		t.Errorf("no SMTP_HOST: SMTP = %+v, want empty", cfg.SMTP)
 	}
 }
+
+func TestLoadReadsR2AsOneSetAndNeverPrintsTheSecret(t *testing.T) {
+	all := map[string]string{
+		"R2_ENDPOINT": "https://account.r2.cloudflarestorage.com", "R2_ACCESS_KEY_ID": "key-id", "R2_SECRET_ACCESS_KEY": "r2-secret-value",
+		"R2_UPLOADS_BUCKET": "printing-uploads", "R2_FILES_BUCKET": "printing-files", "FILES_ORIGIN": "https://files.printingprofiles.com",
+	}
+	cfg, err := Load(env(all))
+	want := R2{Endpoint: "https://account.r2.cloudflarestorage.com", AccessKeyID: "key-id", SecretAccessKey: "r2-secret-value",
+		UploadsBucket: "printing-uploads", FilesBucket: "printing-files", FilesOrigin: "https://files.printingprofiles.com"}
+	if err != nil || cfg.R2 != want {
+		t.Errorf("R2 = %+v, err %v", cfg.R2, err)
+	}
+	delete(all, "R2_FILES_BUCKET")
+	if _, err := Load(env(all)); err == nil || !strings.Contains(err.Error(), "R2_") || strings.Contains(err.Error(), "r2-secret-value") {
+		t.Errorf("a missing R2 value: err = %v", err)
+	}
+	if cfg, _ := Load(env(nil)); cfg.R2 != (R2{}) {
+		t.Errorf("no R2 variables: R2 = %+v, want empty", cfg.R2)
+	}
+}
