@@ -143,3 +143,18 @@ func TestLoadNeedsALongHashKeyInProdAndOneProxyHopByDefault(t *testing.T) {
 		t.Errorf("prod defaults: ProxyHops %d, err %v, want 1", cfg.ProxyHops, err)
 	}
 }
+
+func TestLoadReadsSMTPAndNeedsItsLoginWhenAHostIsSet(t *testing.T) {
+	cfg, err := Load(env(map[string]string{"SMTP_HOST": "smtp.resend.com", "SMTP_PORT": "465", "SMTP_USERNAME": "resend",
+		"SMTP_PASSWORD": "re_secret_value", "MAIL_FROM": "Printing Profiles <signin@printingprofiles.com>"}))
+	if err != nil || cfg.SMTP != (SMTP{Host: "smtp.resend.com", Port: 465, Username: "resend", Password: "re_secret_value", From: "Printing Profiles <signin@printingprofiles.com>"}) {
+		t.Errorf("SMTP = %+v, err %v", cfg.SMTP, err)
+	}
+	_, err = Load(env(map[string]string{"SMTP_HOST": "smtp.resend.com", "SMTP_PASSWORD": "re_secret_value"}))
+	if err == nil || !strings.Contains(err.Error(), "MAIL_FROM") || strings.Contains(err.Error(), "re_secret_value") {
+		t.Errorf("missing sender and login: err = %v", err)
+	}
+	if cfg, _ := Load(env(nil)); cfg.SMTP != (SMTP{}) {
+		t.Errorf("no SMTP_HOST: SMTP = %+v, want empty", cfg.SMTP)
+	}
+}

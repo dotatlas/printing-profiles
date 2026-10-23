@@ -72,3 +72,16 @@ RETURNING count;
 
 -- name: DeleteOldRateLimits :exec
 DELETE FROM rate_limits WHERE window_start < now() - interval '1 day';
+
+-- name: CreateEmailToken :exec
+INSERT INTO email_tokens (token_hash, email, return_path, expires_at)
+VALUES (sqlc.arg(token_hash), sqlc.arg(email), sqlc.arg(return_path), now() + interval '15 minutes');
+
+-- name: UseEmailToken :one
+-- used_at IS NULL in the WHERE makes each link work one time, even when two requests arrive together.
+UPDATE email_tokens SET used_at = now()
+WHERE token_hash = sqlc.arg(token_hash) AND used_at IS NULL AND expires_at > now()
+RETURNING email, return_path;
+
+-- name: DeleteOldEmailTokens :exec
+DELETE FROM email_tokens WHERE expires_at <= now() - interval '1 day';

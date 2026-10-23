@@ -11,13 +11,15 @@ import (
 
 	"github.com/dotatlas/printing-profiles/api/internal/config"
 	"github.com/dotatlas/printing-profiles/api/internal/db"
+	"github.com/dotatlas/printing-profiles/api/internal/mail"
 )
 
 // Server holds what the handlers need. main makes one and gives its Handler to Serve.
 type Server struct {
-	Log *slog.Logger
-	Cfg config.Config
-	DB  *db.Queries // the sqlc queries; nil in tests that do not touch the database
+	Log  *slog.Logger
+	Cfg  config.Config
+	DB   *db.Queries // the sqlc queries; nil in tests that do not touch the database
+	Mail mail.Sender // the sender of sign-in emails; nil means no email sign-in
 
 	providers map[string]*oauthProvider // the OAuth providers; Handler makes them from Cfg, and tests put fakes here
 }
@@ -39,6 +41,8 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /api/v1/auth/signout-all", s.handleSignOutAll)
 	mux.HandleFunc("GET /api/v1/auth/{provider}/start", s.handleOAuthStart)
 	mux.HandleFunc("GET /api/v1/auth/{provider}/callback", s.handleOAuthCallback)
+	mux.HandleFunc("POST /api/v1/auth/email/start", s.handleEmailStart)
+	mux.HandleFunc("POST /api/v1/auth/email/finish", s.handleEmailFinish)
 	if s.Cfg.Env == "dev" {
 		// The fake provider signs in without a password or a provider, so it must never exist in prod.
 		mux.HandleFunc("GET /api/v1/auth/fake/start", s.handleFakeSignIn)

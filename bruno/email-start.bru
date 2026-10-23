@@ -1,0 +1,24 @@
+meta {
+  name: email sign-in start
+  type: http
+  seq: 16
+}
+
+post {
+  url: {{baseUrl}}/api/v1/auth/email/start
+  body: json
+  auth: none
+}
+
+headers {
+  Origin: {{siteOrigin}}
+}
+
+body:json {
+  {"email": "bruno@example.com", "return": "/presets"}
+}
+
+assert {
+  res.status: eq 202
+  res.body.status: eq sent
+}

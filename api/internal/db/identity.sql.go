@@ -34,6 +34,22 @@ func (q *Queries) AddIdentity(ctx context.Context, arg AddIdentityParams) error 
 	return err
 }
 
+const createEmailToken = `-- name: CreateEmailToken :exec
+INSERT INTO email_tokens (token_hash, email, return_path, expires_at)
+VALUES ($1, $2, $3, now() + interval '15 minutes')
+`
+
+type CreateEmailTokenParams struct {
+	TokenHash  []byte
+	Email      string
+	ReturnPath string
+}
+
+func (q *Queries) CreateEmailToken(ctx context.Context, arg CreateEmailTokenParams) error {
+	_, err := q.db.Exec(ctx, createEmailToken, arg.TokenHash, arg.Email, arg.ReturnPath)
+	return err
+}
+
 const createOAuthFlow = `-- name: CreateOAuthFlow :exec
 INSERT INTO oauth_flows (state_hash, provider, verifier, return_path, link_user_id, expires_at)
 VALUES ($1, $2, $3, $4,
@@ -114,6 +130,15 @@ WHERE user_id = $1 AND (expires_at <= now() OR last_seen_at <= now() - interval 
 
 func (q *Queries) DeleteExpiredSessions(ctx context.Context, userID int64) error {
 	_, err := q.db.Exec(ctx, deleteExpiredSessions, userID)
+	return err
+}
+
+const deleteOldEmailTokens = `-- name: DeleteOldEmailTokens :exec
+DELETE FROM email_tokens WHERE expires_at <= now() - interval '1 day'
+`
+
+func (q *Queries) DeleteOldEmailTokens(ctx context.Context) error {
+	_, err := q.db.Exec(ctx, deleteOldEmailTokens)
 	return err
 }
 
@@ -293,4 +318,23 @@ WHERE id = $1 AND last_seen_at < now() - interval '1 hour'
 func (q *Queries) TouchSession(ctx context.Context, id int64) error {
 	_, err := q.db.Exec(ctx, touchSession, id)
 	return err
+}
+
+const useEmailToken = `-- name: UseEmailToken :one
+UPDATE email_tokens SET used_at = now()
+WHERE token_hash = $1 AND used_at IS NULL AND expires_at > now()
+RETURNING email, return_path
+`
+
+type UseEmailTokenRow struct {
+	Email      string
+	ReturnPath string
+}
+
+// used_at IS NULL in the WHERE makes each link work one time, even when two requests arrive together.
+func (q *Queries) UseEmailToken(ctx context.Context, tokenHash []byte) (UseEmailTokenRow, error) {
+	row := q.db.QueryRow(ctx, useEmailToken, tokenHash)
+	var i UseEmailTokenRow
+	err := row.Scan(&i.Email, &i.ReturnPath)
+	return i, err
 }

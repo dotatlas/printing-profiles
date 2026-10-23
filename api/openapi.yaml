@@ -252,6 +252,90 @@ paths:
           $ref: "#/components/responses/Problem"
         default:
           $ref: "#/components/responses/Problem"
+  /api/v1/auth/email/start:
+    post:
+      operationId: startEmailSignIn
+      summary: Email a one-time sign-in link
+      description: >-
+        The answer is the same for every valid address, so it tells nobody which addresses have accounts.
+        The link works one time, for 15 minutes. Limits: 5 an hour for one address, 20 an hour for one IP.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [email]
+              properties:
+                email:
+                  type: string
+                  format: email
+                  maxLength: 254
+                return:
+                  type: string
+                  maxLength: 200
+                  description: The path on the site to go to after sign-in.
+      responses:
+        "202":
+          description: The link is on its way.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status]
+                properties:
+                  status:
+                    type: string
+                    const: sent
+        "400":
+          $ref: "#/components/responses/Problem"
+        "403":
+          $ref: "#/components/responses/Problem"
+        "429":
+          $ref: "#/components/responses/Problem"
+        "503":
+          $ref: "#/components/responses/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
+  /api/v1/auth/email/finish:
+    post:
+      operationId: finishEmailSignIn
+      summary: Sign in with the token from an email link
+      description: The site's link page sends this from a button, never on page load, because mail scanners open links.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [token]
+              properties:
+                token:
+                  type: string
+      responses:
+        "200":
+          description: Signed in. The session cookie is set.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [return]
+                properties:
+                  return:
+                    type: string
+                    description: The path on the site to go to now.
+        "400":
+          $ref: "#/components/responses/Problem"
+        "403":
+          $ref: "#/components/responses/Problem"
+        "429":
+          $ref: "#/components/responses/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
   /api/v1/auth/fake/start:
     get:
       operationId: fakeSignIn

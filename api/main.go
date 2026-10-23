@@ -17,6 +17,7 @@ import (
 	"github.com/dotatlas/printing-profiles/api/internal/config"
 	"github.com/dotatlas/printing-profiles/api/internal/db"
 	"github.com/dotatlas/printing-profiles/api/internal/httpapi"
+	"github.com/dotatlas/printing-profiles/api/internal/mail"
 	"github.com/dotatlas/printing-profiles/api/migrations"
 )
 
@@ -75,7 +76,7 @@ func serve(log *slog.Logger) error {
 	defer stop()
 
 	log.Info("listening", "port", cfg.Port, "env", cfg.Env, "site_origin", cfg.SiteOrigin)
-	srv := &httpapi.Server{Log: log, Cfg: cfg, DB: db.New(pool)}
+	srv := &httpapi.Server{Log: log, Cfg: cfg, DB: db.New(pool), Mail: mailSender(cfg, log)}
 	return httpapi.Serve(ctx, ln, srv.Handler())
 }
 
@@ -104,4 +105,17 @@ func migrate(log *slog.Logger) error {
 	}
 	log.Info("database is up to date", "applied", len(results))
 	return nil
+}
+
+// mailSender returns the SMTP relay from the settings. Without one, dev writes emails to the log, and prod has no
+// email sign-in, so the log sender can never run in prod. serve calls it.
+func mailSender(cfg config.Config, log *slog.Logger) mail.Sender {
+	switch {
+	case cfg.SMTP.Host != "":
+		return mail.SMTP{Host: cfg.SMTP.Host, Port: cfg.SMTP.Port, Username: cfg.SMTP.Username, Password: cfg.SMTP.Password, From: cfg.SMTP.From}
+	case cfg.Env == "dev":
+		return mail.Log{L: log}
+	default:
+		return nil
+	}
 }

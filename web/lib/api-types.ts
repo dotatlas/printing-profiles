@@ -194,6 +194,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/auth/email/start": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Email a one-time sign-in link
+         * @description The answer is the same for every valid address, so it tells nobody which addresses have accounts. The link works one time, for 15 minutes. Limits: 5 an hour for one address, 20 an hour for one IP.
+         */
+        post: operations["startEmailSignIn"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/email/finish": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Sign in with the token from an email link
+         * @description The site's link page sends this from a button, never on page load, because mail scanners open links.
+         */
+        post: operations["finishEmailSignIn"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/auth/fake/start": {
         parameters: {
             query?: never;
@@ -650,6 +690,76 @@ export interface operations {
             };
             400: components["responses"]["Problem"];
             404: components["responses"]["Problem"];
+            default: components["responses"]["Problem"];
+        };
+    };
+    startEmailSignIn: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: email */
+                    email: string;
+                    /** @description The path on the site to go to after sign-in. */
+                    return?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description The link is on its way. */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        status: "sent";
+                    };
+                };
+            };
+            400: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            429: components["responses"]["Problem"];
+            503: components["responses"]["Problem"];
+            default: components["responses"]["Problem"];
+        };
+    };
+    finishEmailSignIn: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    token: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Signed in. The session cookie is set. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @description The path on the site to go to now. */
+                        return: string;
+                    };
+                };
+            };
+            400: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            429: components["responses"]["Problem"];
             default: components["responses"]["Problem"];
         };
     };

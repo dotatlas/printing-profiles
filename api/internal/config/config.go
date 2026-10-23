@@ -20,6 +20,16 @@ type Config struct {
 	Discord     OAuthClient
 	HashKey     string // the HMAC key for rate-limit keys, so stored IPs and addresses cannot be read back
 	ProxyHops   int    // how many proxies in front add to X-Forwarded-For; 0 means use the socket address
+	SMTP        SMTP   // the relay for sign-in emails; with no Host, prod has no email sign-in and dev logs the emails
+}
+
+// SMTP is the relay that sends the sign-in emails.
+type SMTP struct {
+	Host     string
+	Port     int
+	Username string
+	Password string
+	From     string // the sender, for example "Printing Profiles <signin@printingprofiles.com>"
 }
 
 // devHashKey is the HMAC key in dev. It is not a secret, so prod must set its own HASH_KEY.
@@ -75,6 +85,8 @@ func Load(getenv func(string) string) (Config, error) {
 		cfg.HashKey = key
 	}
 
+	cfg.SMTP, errs = readSMTP(getenv, errs)
+
 	if cfg.Env == "prod" {
 		cfg.ProxyHops = 1 // In prod, the host's ingress is the one proxy in front of the API.
 	}
@@ -115,6 +127,26 @@ func readOrigin(getenv func(string) string, name, def string, prod bool, errs []
 		return def, append(errs, fmt.Errorf("%s: %w", name, err))
 	}
 	return o, errs
+}
+
+// readSMTP reads the SMTP_ variables and MAIL_FROM. With SMTP_HOST set, the sender and the login are required. Load calls it.
+func readSMTP(getenv func(string) string, errs []error) (SMTP, []error) {
+	m := SMTP{Host: getenv("SMTP_HOST"), Port: 587, Username: getenv("SMTP_USERNAME"), Password: getenv("SMTP_PASSWORD"), From: getenv("MAIL_FROM")}
+	if m.Host == "" {
+		return SMTP{}, errs
+	}
+	if v := getenv("SMTP_PORT"); v != "" {
+		n, err := strconv.Atoi(v)
+		if err != nil || n < 1 || n > 65535 {
+			errs = append(errs, fmt.Errorf("SMTP_PORT must be a number from 1 to 65535, not %q", v))
+		}
+		m.Port = n
+	}
+	if m.From == "" || m.Username == "" || m.Password == "" {
+		// Do not put the values in the error: the password is a secret.
+		errs = append(errs, errors.New("with SMTP_HOST set, MAIL_FROM, SMTP_USERNAME and SMTP_PASSWORD must be set too"))
+	}
+	return m, errs
 }
 
 // readOAuthClient reads <prefix>_CLIENT_ID and <prefix>_CLIENT_SECRET, which must both be set or both be empty. Load calls it.

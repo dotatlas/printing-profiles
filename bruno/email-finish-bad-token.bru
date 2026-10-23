@@ -1,0 +1,24 @@
+meta {
+  name: email sign-in with a used or made-up token
+  type: http
+  seq: 17
+}
+
+post {
+  url: {{baseUrl}}/api/v1/auth/email/finish
+  body: json
+  auth: none
+}
+
+headers {
+  Origin: {{siteOrigin}}
+}
+
+body:json {
+  {"token": "not-a-real-token"}
+}
+
+assert {
+  res.status: eq 400
+  res.headers["content-type"]: eq application/problem+json
+}
