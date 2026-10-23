@@ -15,8 +15,9 @@ export class ApiError extends Error {
 }
 
 // call sends one request to the API with the session cookie, and gives the JSON answer or throws ApiError.
-// Every function below uses it. The browser adds the site's Origin header, which the API checks on writes.
-async function call<T>(path: string, method = "GET", body?: unknown): Promise<T> {
+// Every function below and lib/my-presets.ts use it. The browser adds the site's Origin header, which the API checks
+// on writes.
+export async function call<T>(path: string, method = "GET", body?: unknown): Promise<T> {
   let res: Response;
   try {
     res = await fetch(apiBase + path, {

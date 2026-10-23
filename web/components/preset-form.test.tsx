@@ -1,0 +1,127 @@
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { afterEach, expect, test, vi } from "vitest";
+import type { Material, Preset, Printer, Slicer } from "../lib/api-types";
+import { PresetForm } from "./preset-form";
+
+const bambu = { slug: "bambu-lab", name: "Bambu Lab" };
+const printers: Printer[] = [{ slug: "bambu-lab-p1s", model: "P1S", brand: bambu }];
+const materials: Material[] = [
+  { slug: "bambu-lab-pla-basic", product_name: "PLA Basic", type: "PLA", diameter_mm: 1.75, brand: bambu, colors: [] },
+];
+const slicers: Slicer[] = [{ slug: "orcaslicer", name: "OrcaSlicer" }];
+const catalog = { printers, materials, slicers };
+
+const preset: Preset = {
+  id: "ab3defgh",
+  slug: "fast-pla",
+  title: "Fast PLA for the P1S",
+  description: "Line one.",
+  author: { handle: "maker", display_name: "Mia Maker" },
+  printer: printers[0],
+  material: { slug: "bambu-lab-pla-basic", product_name: "PLA Basic", type: "PLA", brand: bambu },
+  nozzle_mm: 0.6,
+  slicer: slicers[0],
+  slicer_version: "2.3.0",
+  license: "CC0-1.0",
+  status: "draft",
+  created_at: "2026-10-20T10:00:00Z",
+  updated_at: "2026-10-20T10:00:00Z",
+};
+
+afterEach(() => vi.unstubAllGlobals());
+
+// stubAPI answers every request with one status and body, and keeps the request bodies.
+function stubAPI(status: number, body: unknown, headers: Record<string, string> = {}) {
+  const sent: unknown[] = [];
+  vi.stubGlobal("fetch", async (_url: string, init: RequestInit) => {
+    sent.push(JSON.parse(String(init.body)));
+    return new Response(JSON.stringify(body), { status, headers });
+  });
+  return sent;
+}
+
+// fillNew fills every required field of a new preset.
+function fillNew() {
+  fireEvent.change(screen.getByLabelText("Title"), { target: { value: "Fast PLA for the P1S" } });
+  fireEvent.change(screen.getByLabelText("Printer"), { target: { value: "bambu-lab-p1s" } });
+  fireEvent.change(screen.getByLabelText("Filament"), { target: { value: "bambu-lab-pla-basic" } });
+  fireEvent.change(screen.getByLabelText("Slicer"), { target: { value: "orcaslicer" } });
+}
+
+test("a new preset starts with a 0.4 mm nozzle, the CC BY 4.0 license and no other choice made", () => {
+  render(<PresetForm catalog={catalog} onSaved={() => {}} />);
+
+  expect((screen.getByLabelText("Printer") as HTMLSelectElement).value).toBe("");
+  expect((screen.getByLabelText("Nozzle") as HTMLSelectElement).value).toBe("0.4");
+  expect((screen.getByLabelText(/^CC BY 4\.0/) as HTMLInputElement).checked).toBe(true);
+});
+
+test("a missing field shows its message under the field and takes the focus, without a call to the API", async () => {
+  const sent = stubAPI(201, preset);
+  render(<PresetForm catalog={catalog} onSaved={() => {}} />);
+  fireEvent.change(screen.getByLabelText("Title"), { target: { value: "Fast PLA for the P1S" } });
+
+  fireEvent.click(screen.getByRole("button", { name: "Publish" }));
+
+  const printer = screen.getByLabelText("Printer");
+  expect(await screen.findByText("Choose a printer.")).toBeDefined();
+  expect(printer.getAttribute("aria-invalid")).toBe("true");
+  expect(document.activeElement).toBe(printer);
+  expect(sent).toHaveLength(0);
+});
+
+test("Publish and Save as draft send the whole preset with the status", async () => {
+  const sent = stubAPI(201, preset);
+  const onSaved = vi.fn();
+  render(<PresetForm catalog={catalog} onSaved={onSaved} />);
+  fillNew();
+
+  fireEvent.click(screen.getByRole("button", { name: "Save as draft" }));
+
+  await waitFor(() => expect(onSaved).toHaveBeenCalledWith(preset));
+  expect(sent[0]).toEqual({
+    title: "Fast PLA for the P1S",
+    description: "",
+    printer: "bambu-lab-p1s",
+    material: "bambu-lab-pla-basic",
+    nozzle_mm: 0.4,
+    slicer: "orcaslicer",
+    slicer_version: "",
+    license: "CC-BY-4.0",
+    status: "draft",
+  });
+});
+
+test("a message from the API goes under the field that it names", async () => {
+  stubAPI(400, { detail: "printer is not in the catalog" });
+  render(<PresetForm catalog={catalog} onSaved={() => {}} />);
+  fillNew();
+
+  fireEvent.click(screen.getByRole("button", { name: "Publish" }));
+
+  expect(await screen.findByText("printer is not in the catalog")).toBeDefined();
+  expect(screen.getByLabelText("Printer").getAttribute("aria-invalid")).toBe("true");
+});
+
+test("editing fills in the preset and keeps a draft a draft until the author publishes it", async () => {
+  const sent = stubAPI(200, preset);
+  render(<PresetForm catalog={catalog} preset={preset} onSaved={() => {}} />);
+
+  expect((screen.getByLabelText("Title") as HTMLInputElement).value).toBe("Fast PLA for the P1S");
+  expect((screen.getByLabelText("Nozzle") as HTMLSelectElement).value).toBe("0.6");
+  expect((screen.getByLabelText(/^CC0 1\.0/) as HTMLInputElement).checked).toBe(true);
+
+  fireEvent.click(screen.getByRole("button", { name: "Save draft" }));
+  await waitFor(() => expect(sent).toHaveLength(1));
+  expect(sent[0]).toMatchObject({ status: "draft", nozzle_mm: 0.6 });
+});
+
+test("at the create limit the form says when to try again, above the buttons", async () => {
+  stubAPI(429, { detail: "too many requests" }, { "Retry-After": "600" });
+  render(<PresetForm catalog={catalog} onSaved={() => {}} />);
+  fillNew();
+
+  fireEvent.click(screen.getByRole("button", { name: "Publish" }));
+
+  expect((await screen.findByRole("alert")).textContent).toBe("You shared many presets in the last hour. Try again in 10 minutes.");
+});
