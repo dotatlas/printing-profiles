@@ -2,7 +2,16 @@
 import { createServer } from "node:http";
 import type { AddressInfo } from "node:net";
 import { afterAll, afterEach, beforeEach, expect, test, vi } from "vitest";
-import { browsePath, cleanBrowseQuery, getPreset, listPresets, nozzleLabel, parsePresetParam, presetPath } from "./presets";
+import {
+  authorName,
+  browsePath,
+  cleanBrowseQuery,
+  getPreset,
+  listPresets,
+  nozzleLabel,
+  parsePresetParam,
+  presetPath,
+} from "./presets";
 
 // The fake API knows one preset (abcdefgh), refuses the nozzle 0.7, and fails for the preset zzzzzzzz.
 const requests: string[] = [];
@@ -64,6 +73,11 @@ test("browsePath writes the filters in a fixed order and leaves out the empty on
 
 test("nozzleLabel writes a nozzle the way a slicer shows it", () => {
   expect([0.2, 0.25, 0.4, 1, 1.2].map(nozzleLabel)).toEqual(["0.2 mm", "0.25 mm", "0.4 mm", "1.0 mm", "1.2 mm"]);
+});
+
+test("authorName gives the display name with the handle, or the handle alone when there is no name", () => {
+  expect(authorName({ handle: "mia", display_name: "Mia Hartmann" })).toBe("Mia Hartmann (@mia)");
+  expect(authorName({ handle: "mia", display_name: "" })).toBe("@mia");
 });
 
 test("getPreset gives the preset, null for a missing one, and fails on an API error", async () => {

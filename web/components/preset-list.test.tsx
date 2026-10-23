@@ -54,6 +54,12 @@ test("a row links to the preset and names each fact for screen readers", () => {
   expect(row.textContent).toContain("by Mia Maker · 20 Oct 2026");
 });
 
+test("a row names an author without a display name by the handle", () => {
+  render(<PresetList items={[{ ...preset, author: { handle: "maker", display_name: "" } }]} />);
+
+  expect(screen.getByRole("listitem").textContent).toContain("by @maker · 20 Oct 2026");
+});
+
 test("the filters show the current choice and mark the filters in use", () => {
   render(<BrowseFilters catalog={catalog} query={{ printer: "bambu-lab-p1s" }} />);
 

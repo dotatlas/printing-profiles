@@ -66,6 +66,12 @@ export function materialLabel(material: Preset["material"]): string {
   return `${material.brand.name} ${material.product_name}`;
 }
 
+// authorName names the author of a preset in a byline: "Mia Hartmann (@mia)", or "@mia" for a user without a
+// display name. The preset page uses it; the rows show the shorter display name alone.
+export function authorName(author: Preset["author"]): string {
+  return author.display_name ? `${author.display_name} (@${author.handle})` : `@${author.handle}`;
+}
+
 // getPreset gets one preset from the API on the server, without cookies, so it sees only published presets.
 // It gives null when the API answers 404. The preset page calls it.
 export async function getPreset(id: string): Promise<Preset | null> {

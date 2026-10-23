@@ -171,7 +171,8 @@ export function PresetList({ items, query = {} }: { items: Preset[]; query?: Bro
               {preset.title}
             </Link>
             <p className="mt-0.5 text-[13px] text-muted wrap-anywhere">
-              by {preset.author.display_name} · {formatDate(preset.published_at ?? preset.created_at)}
+              by {preset.author.display_name || `@${preset.author.handle}`} ·{" "}
+              {formatDate(preset.published_at ?? preset.created_at)}
             </p>
           </div>
           <dl className="mt-1.5 grid grid-cols-2 gap-x-3 gap-y-0.5 text-[13px] md:grid-cols-4 lg:contents lg:text-sm">

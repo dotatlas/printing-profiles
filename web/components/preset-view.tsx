@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import type { Preset } from "../lib/api-types";
 import { formatDate } from "../lib/format";
+import { authorName } from "../lib/presets";
 import { PresetDetails, PresetFacts } from "./preset-facts";
 
 // PresetView shows one preset: the title, the author, the facts as tags, the description and the details. The
@@ -14,7 +15,7 @@ export function PresetView({ preset, actions, notice }: { preset: Preset; action
         <div className="min-w-0 flex-1 basis-80">
           <h1 className="text-2xl font-semibold tracking-tight text-balance wrap-anywhere sm:text-3xl">{preset.title}</h1>
           <p className="mt-2 text-muted wrap-anywhere">
-            by <span className="text-ink">{preset.author.display_name}</span> (@{preset.author.handle}) ·{" "}
+            by <span className="text-ink">{authorName(preset.author)}</span> ·{" "}
             {formatDate(preset.published_at ?? preset.created_at)}
           </p>
         </div>
