@@ -16,7 +16,9 @@ const catalog = cache(loadCatalog);
 
 // generateMetadata names the filters in the title, so the tab and a shared link say which presets they show.
 export async function generateMetadata({ searchParams }: PageProps<"/presets">): Promise<Metadata> {
-  const setup = setupLabel(await catalog(), cleanBrowseQuery(await searchParams).query);
+  // The query first: it makes the page a request-time page, so the build never calls the API here.
+  const { query } = cleanBrowseQuery(await searchParams);
+  const setup = setupLabel(await catalog(), query);
   return {
     title: setup ? `Presets for ${setup}` : "Browse presets",
     description: "Slicer presets for an exact printer, filament, nozzle and slicer, newest first.",
