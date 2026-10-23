@@ -1,0 +1,30 @@
+meta {
+  name: comment on a preset
+  type: http
+  seq: 37
+}
+
+post {
+  url: {{baseUrl}}/api/v1/presets/{{filePresetId}}/comments
+  body: json
+  auth: none
+}
+
+headers {
+  Cookie: __Host-session={{reviewerSession}}
+  Origin: {{siteOrigin}}
+}
+
+body:json {
+  {"body": "Which build plate did you use?"}
+}
+
+script:post-response {
+  bru.setVar("commentId", res.body.id);
+}
+
+assert {
+  res.status: eq 201
+  res.body.author.handle: eq {{reviewer}}
+  res.body.deleted: eq false
+}

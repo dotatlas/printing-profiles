@@ -1,0 +1,24 @@
+meta {
+  name: a reply to a reply is refused
+  type: http
+  seq: 39
+}
+
+post {
+  url: {{baseUrl}}/api/v1/presets/{{filePresetId}}/comments
+  body: json
+  auth: none
+}
+
+headers {
+  Cookie: __Host-session={{reviewerSession}}
+  Origin: {{siteOrigin}}
+}
+
+body:json {
+  {"body": "Deeper", "parent": "{{replyId}}"}
+}
+
+assert {
+  res.status: eq 400
+}

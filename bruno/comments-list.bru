@@ -1,0 +1,18 @@
+meta {
+  name: list a preset's comments
+  type: http
+  seq: 42
+}
+
+get {
+  url: {{baseUrl}}/api/v1/presets/{{filePresetId}}/comments
+  body: none
+  auth: none
+}
+
+assert {
+  res.status: eq 200
+  res.body.items[0].deleted: eq true
+  res.body.items[0].body: isEmpty
+  res.body.items[0].replies[0].body: eq The textured PEI plate, I think.
+}

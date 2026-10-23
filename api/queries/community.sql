@@ -29,3 +29,50 @@ LIMIT sqlc.arg(max_rows)::int;
 -- name: MyReview :one
 SELECT stars, body, created_at, updated_at FROM reviews
 WHERE preset_id = sqlc.arg(preset_id) AND author_id = sqlc.arg(author_id);
+
+-- name: CommentParent :one
+-- A reply goes only under a top-level comment of the same preset that is not deleted: one level of replies.
+SELECT id FROM comments
+WHERE public_id = sqlc.arg(public_id) AND preset_id = sqlc.arg(preset_id) AND parent_id IS NULL AND deleted_at IS NULL;
+
+-- name: CreateComment :exec
+INSERT INTO comments (public_id, preset_id, author_id, parent_id, body)
+VALUES (sqlc.arg(public_id), sqlc.arg(preset_id), sqlc.arg(author_id), sqlc.narg(parent_id), sqlc.arg(body));
+
+-- name: UpdateComment :execrows
+UPDATE comments SET body = sqlc.arg(body), updated_at = now()
+WHERE public_id = sqlc.arg(public_id) AND author_id = sqlc.arg(author_id) AND deleted_at IS NULL;
+
+-- name: DeleteComment :execrows
+-- The text goes at once; the row stays for the replies under it.
+UPDATE comments SET body = '', deleted_at = now()
+WHERE public_id = sqlc.arg(public_id) AND author_id = sqlc.arg(author_id) AND deleted_at IS NULL;
+
+-- name: GetComment :one
+SELECT c.public_id, c.body, c.created_at, c.updated_at, c.deleted_at,
+       coalesce(u.handle, '')::text AS author_handle, u.display_name AS author_display_name
+FROM comments c
+JOIN users u ON u.id = c.author_id
+WHERE c.public_id = sqlc.arg(public_id);
+
+-- name: ListTopComments :many
+-- Oldest first. A deleted comment shows only when a reply under it is still there.
+SELECT c.id, c.public_id, c.body, c.created_at, c.updated_at, c.deleted_at,
+       coalesce(u.handle, '')::text AS author_handle, u.display_name AS author_display_name
+FROM comments c
+JOIN users u ON u.id = c.author_id
+WHERE c.preset_id = sqlc.arg(preset_id) AND c.parent_id IS NULL
+  AND (c.deleted_at IS NULL OR EXISTS (SELECT 1 FROM comments r WHERE r.parent_id = c.id AND r.deleted_at IS NULL))
+  AND (sqlc.narg(after_created)::timestamptz IS NULL
+       OR (c.created_at, c.id) > (sqlc.narg(after_created)::timestamptz, sqlc.narg(after_id)::bigint))
+ORDER BY c.created_at, c.id
+LIMIT sqlc.arg(max_rows)::int;
+
+-- name: ListReplies :many
+-- shortcut: every reply of the page's comments comes at once; page the replies when threads grow past a few dozen.
+SELECT c.parent_id, c.public_id, c.body, c.created_at, c.updated_at,
+       coalesce(u.handle, '')::text AS author_handle, u.display_name AS author_display_name
+FROM comments c
+JOIN users u ON u.id = c.author_id
+WHERE c.parent_id = ANY(sqlc.arg(parent_ids)::bigint[]) AND c.deleted_at IS NULL
+ORDER BY c.created_at, c.id;

@@ -1,0 +1,28 @@
+meta {
+  name: reply to a comment
+  type: http
+  seq: 38
+}
+
+post {
+  url: {{baseUrl}}/api/v1/presets/{{filePresetId}}/comments
+  body: json
+  auth: none
+}
+
+headers {
+  Cookie: __Host-session={{reviewerSession}}
+  Origin: {{siteOrigin}}
+}
+
+body:json {
+  {"body": "The textured PEI plate, I think.", "parent": "{{commentId}}"}
+}
+
+script:post-response {
+  bru.setVar("replyId", res.body.id);
+}
+
+assert {
+  res.status: eq 201
+}

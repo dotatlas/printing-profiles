@@ -272,6 +272,52 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/presets/{id}/comments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        /**
+         * List a published preset's comments, oldest first, each with its replies
+         * @description A deleted comment shows (without text or author) only while a reply under it is still there.
+         */
+        get: operations["listComments"];
+        put?: never;
+        /** Comment on a published preset, or reply to a top-level comment (signed in, with a handle) */
+        post: operations["createComment"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/comments/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete your comment (the author only; anyone else gets 404)
+         * @description The text goes at once. The comment stays as "deleted" while a reply under it is still there.
+         */
+        delete: operations["deleteComment"];
+        options?: never;
+        head?: never;
+        /** Change the text of your comment (the author only; anyone else gets 404) */
+        patch: operations["updateComment"];
+        trace?: never;
+    };
     "/api/v1/me/presets": {
         parameters: {
             query?: never;
@@ -685,6 +731,33 @@ export interface components {
             /** @description Send it as cursor to get the next page. It is missing on the last page. */
             next_cursor?: string;
         };
+        CommentCreate: {
+            /** @description Plain text. */
+            body: string;
+            /** @description A top-level comment of the same preset, for a reply. */
+            parent?: string;
+        };
+        Comment: {
+            id: string;
+            /** @description Empty for a deleted comment. */
+            body: string;
+            author: {
+                /** @description Empty for a deleted comment. */
+                handle: string;
+                display_name: string;
+            };
+            /** Format: date-time */
+            created_at: string;
+            edited: boolean;
+            deleted: boolean;
+            /** @description Only on a top-level comment. */
+            replies?: components["schemas"]["Comment"][];
+        };
+        CommentPage: {
+            items: components["schemas"]["Comment"][];
+            /** @description Send it as cursor to get the next page. It is missing on the last page. */
+            next_cursor?: string;
+        };
         PresetFile: {
             /** @enum {string} */
             slicer: "prusaslicer" | "superslicer" | "orcaslicer";
@@ -861,6 +934,9 @@ export type Rating = components['schemas']['Rating'];
 export type ReviewCreate = components['schemas']['ReviewCreate'];
 export type Review = components['schemas']['Review'];
 export type ReviewPage = components['schemas']['ReviewPage'];
+export type CommentCreate = components['schemas']['CommentCreate'];
+export type Comment = components['schemas']['Comment'];
+export type CommentPage = components['schemas']['CommentPage'];
 export type PresetFile = components['schemas']['PresetFile'];
 export type UploadCreate = components['schemas']['UploadCreate'];
 export type UploadTicket = components['schemas']['UploadTicket'];
@@ -1488,6 +1564,122 @@ export interface operations {
                 };
                 content?: never;
             };
+            401: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            default: components["responses"]["Problem"];
+        };
+    };
+    listComments: {
+        parameters: {
+            query?: {
+                /** @description The next_cursor value from the page before. Leave it out for the first page. */
+                cursor?: components["parameters"]["Cursor"];
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description One page of top-level comments. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CommentPage"];
+                };
+            };
+            400: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            default: components["responses"]["Problem"];
+        };
+    };
+    createComment: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CommentCreate"];
+            };
+        };
+        responses: {
+            /** @description The new comment. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Comment"];
+                };
+            };
+            400: components["responses"]["Problem"];
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            429: components["responses"]["Problem"];
+            default: components["responses"]["Problem"];
+        };
+    };
+    deleteComment: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            default: components["responses"]["Problem"];
+        };
+    };
+    updateComment: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    body: string;
+                };
+            };
+        };
+        responses: {
+            /** @description The changed comment. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Comment"];
+                };
+            };
+            400: components["responses"]["Problem"];
             401: components["responses"]["Problem"];
             404: components["responses"]["Problem"];
             default: components["responses"]["Problem"];

@@ -536,6 +536,107 @@ paths:
           $ref: "#/components/responses/Problem"
         default:
           $ref: "#/components/responses/Problem"
+  /api/v1/presets/{id}/comments:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: string, pattern: "^[a-z2-9]{8}$" }
+    get:
+      operationId: listComments
+      summary: List a published preset's comments, oldest first, each with its replies
+      description: A deleted comment shows (without text or author) only while a reply under it is still there.
+      security: [] # Public: no sign-in needed.
+      parameters:
+        - $ref: "#/components/parameters/Cursor"
+        - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 50, default: 20 } }
+      responses:
+        "200":
+          description: One page of top-level comments.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CommentPage" }
+        "400":
+          $ref: "#/components/responses/Problem"
+        "404":
+          $ref: "#/components/responses/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
+    post:
+      operationId: createComment
+      summary: Comment on a published preset, or reply to a top-level comment (signed in, with a handle)
+      security: [{session: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CommentCreate" }
+      responses:
+        "201":
+          description: The new comment.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Comment" }
+        "400":
+          $ref: "#/components/responses/Problem"
+        "401":
+          $ref: "#/components/responses/Problem"
+        "403":
+          $ref: "#/components/responses/Problem"
+        "404":
+          $ref: "#/components/responses/Problem"
+        "429":
+          $ref: "#/components/responses/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
+  /api/v1/comments/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: string, pattern: "^[a-z2-9]{12}$" }
+    patch:
+      operationId: updateComment
+      summary: Change the text of your comment (the author only; anyone else gets 404)
+      security: [{session: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [body]
+              additionalProperties: false
+              properties:
+                body: { type: string, minLength: 1, maxLength: 2000 }
+      responses:
+        "200":
+          description: The changed comment.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Comment" }
+        "400":
+          $ref: "#/components/responses/Problem"
+        "401":
+          $ref: "#/components/responses/Problem"
+        "404":
+          $ref: "#/components/responses/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
+    delete:
+      operationId: deleteComment
+      summary: Delete your comment (the author only; anyone else gets 404)
+      description: The text goes at once. The comment stays as "deleted" while a reply under it is still there.
+      security: [{session: []}]
+      responses:
+        "204":
+          description: Deleted.
+        "401":
+          $ref: "#/components/responses/Problem"
+        "404":
+          $ref: "#/components/responses/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
   /api/v1/me/presets:
     get:
       operationId: listMyPresets
@@ -1257,6 +1358,40 @@ components:
         items:
           type: array
           items: { $ref: "#/components/schemas/Review" }
+        next_cursor: { type: string, description: Send it as cursor to get the next page. It is missing on the last page. }
+    CommentCreate:
+      type: object
+      required: [body]
+      additionalProperties: false
+      properties:
+        body: { type: string, minLength: 1, maxLength: 2000, description: Plain text. }
+        parent: { type: string, pattern: "^[a-z2-9]{12}$", description: "A top-level comment of the same preset, for a reply." }
+    Comment:
+      type: object
+      required: [id, body, author, created_at, edited, deleted]
+      properties:
+        id: { type: string, pattern: "^[a-z2-9]{12}$" }
+        body: { type: string, description: Empty for a deleted comment. }
+        author:
+          type: object
+          required: [handle, display_name]
+          properties:
+            handle: { type: string, description: Empty for a deleted comment. }
+            display_name: { type: string }
+        created_at: { type: string, format: date-time }
+        edited: { type: boolean }
+        deleted: { type: boolean }
+        replies:
+          type: array
+          description: Only on a top-level comment.
+          items: { $ref: "#/components/schemas/Comment" }
+    CommentPage:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/Comment" }
         next_cursor: { type: string, description: Send it as cursor to get the next page. It is missing on the last page. }
     PresetFile:
       type: object

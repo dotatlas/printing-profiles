@@ -16,6 +16,18 @@ type Brand struct {
 	Slug string
 }
 
+type Comment struct {
+	ID        int64
+	PublicID  string
+	PresetID  int64
+	AuthorID  int64
+	ParentID  pgtype.Int8
+	Body      string
+	CreatedAt time.Time
+	UpdatedAt time.Time
+	DeletedAt pgtype.Timestamptz
+}
+
 type EmailToken struct {
 	TokenHash  []byte
 	Email      string

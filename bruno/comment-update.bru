@@ -1,0 +1,25 @@
+meta {
+  name: edit my comment
+  type: http
+  seq: 40
+}
+
+patch {
+  url: {{baseUrl}}/api/v1/comments/{{commentId}}
+  body: json
+  auth: none
+}
+
+headers {
+  Cookie: __Host-session={{reviewerSession}}
+  Origin: {{siteOrigin}}
+}
+
+body:json {
+  {"body": "Which build plate and glue did you use?"}
+}
+
+assert {
+  res.status: eq 200
+  res.body.edited: eq true
+}

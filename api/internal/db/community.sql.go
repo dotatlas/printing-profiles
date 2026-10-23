@@ -12,6 +12,67 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const commentParent = `-- name: CommentParent :one
+SELECT id FROM comments
+WHERE public_id = $1 AND preset_id = $2 AND parent_id IS NULL AND deleted_at IS NULL
+`
+
+type CommentParentParams struct {
+	PublicID string
+	PresetID int64
+}
+
+// A reply goes only under a top-level comment of the same preset that is not deleted: one level of replies.
+func (q *Queries) CommentParent(ctx context.Context, arg CommentParentParams) (int64, error) {
+	row := q.db.QueryRow(ctx, commentParent, arg.PublicID, arg.PresetID)
+	var id int64
+	err := row.Scan(&id)
+	return id, err
+}
+
+const createComment = `-- name: CreateComment :exec
+INSERT INTO comments (public_id, preset_id, author_id, parent_id, body)
+VALUES ($1, $2, $3, $4, $5)
+`
+
+type CreateCommentParams struct {
+	PublicID string
+	PresetID int64
+	AuthorID int64
+	ParentID pgtype.Int8
+	Body     string
+}
+
+func (q *Queries) CreateComment(ctx context.Context, arg CreateCommentParams) error {
+	_, err := q.db.Exec(ctx, createComment,
+		arg.PublicID,
+		arg.PresetID,
+		arg.AuthorID,
+		arg.ParentID,
+		arg.Body,
+	)
+	return err
+}
+
+const deleteComment = `-- name: DeleteComment :execrows
+UPDATE comments SET body = '', deleted_at = now()
+WHERE public_id = $1 AND author_id = $2 AND deleted_at IS NULL
+`
+
+type DeleteCommentParams struct {
+	PublicID string
+	AuthorID int64
+}
+
+// The text goes at once; the row stays for the replies under it.
+func (q *Queries) DeleteComment(ctx context.Context, arg DeleteCommentParams) (int64, error) {
+	result, err := q.db.Exec(ctx, deleteComment, arg.PublicID, arg.AuthorID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
 const deleteMyReview = `-- name: DeleteMyReview :execrows
 DELETE FROM reviews WHERE preset_id = $1 AND author_id = $2
 `
@@ -27,6 +88,87 @@ func (q *Queries) DeleteMyReview(ctx context.Context, arg DeleteMyReviewParams) 
 		return 0, err
 	}
 	return result.RowsAffected(), nil
+}
+
+const getComment = `-- name: GetComment :one
+SELECT c.public_id, c.body, c.created_at, c.updated_at, c.deleted_at,
+       coalesce(u.handle, '')::text AS author_handle, u.display_name AS author_display_name
+FROM comments c
+JOIN users u ON u.id = c.author_id
+WHERE c.public_id = $1
+`
+
+type GetCommentRow struct {
+	PublicID          string
+	Body              string
+	CreatedAt         time.Time
+	UpdatedAt         time.Time
+	DeletedAt         pgtype.Timestamptz
+	AuthorHandle      string
+	AuthorDisplayName string
+}
+
+func (q *Queries) GetComment(ctx context.Context, publicID string) (GetCommentRow, error) {
+	row := q.db.QueryRow(ctx, getComment, publicID)
+	var i GetCommentRow
+	err := row.Scan(
+		&i.PublicID,
+		&i.Body,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.DeletedAt,
+		&i.AuthorHandle,
+		&i.AuthorDisplayName,
+	)
+	return i, err
+}
+
+const listReplies = `-- name: ListReplies :many
+SELECT c.parent_id, c.public_id, c.body, c.created_at, c.updated_at,
+       coalesce(u.handle, '')::text AS author_handle, u.display_name AS author_display_name
+FROM comments c
+JOIN users u ON u.id = c.author_id
+WHERE c.parent_id = ANY($1::bigint[]) AND c.deleted_at IS NULL
+ORDER BY c.created_at, c.id
+`
+
+type ListRepliesRow struct {
+	ParentID          pgtype.Int8
+	PublicID          string
+	Body              string
+	CreatedAt         time.Time
+	UpdatedAt         time.Time
+	AuthorHandle      string
+	AuthorDisplayName string
+}
+
+// shortcut: every reply of the page's comments comes at once; page the replies when threads grow past a few dozen.
+func (q *Queries) ListReplies(ctx context.Context, parentIds []int64) ([]ListRepliesRow, error) {
+	rows, err := q.db.Query(ctx, listReplies, parentIds)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListRepliesRow
+	for rows.Next() {
+		var i ListRepliesRow
+		if err := rows.Scan(
+			&i.ParentID,
+			&i.PublicID,
+			&i.Body,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.AuthorHandle,
+			&i.AuthorDisplayName,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const listReviews = `-- name: ListReviews :many
@@ -91,6 +233,72 @@ func (q *Queries) ListReviews(ctx context.Context, arg ListReviewsParams) ([]Lis
 	return items, nil
 }
 
+const listTopComments = `-- name: ListTopComments :many
+SELECT c.id, c.public_id, c.body, c.created_at, c.updated_at, c.deleted_at,
+       coalesce(u.handle, '')::text AS author_handle, u.display_name AS author_display_name
+FROM comments c
+JOIN users u ON u.id = c.author_id
+WHERE c.preset_id = $1 AND c.parent_id IS NULL
+  AND (c.deleted_at IS NULL OR EXISTS (SELECT 1 FROM comments r WHERE r.parent_id = c.id AND r.deleted_at IS NULL))
+  AND ($2::timestamptz IS NULL
+       OR (c.created_at, c.id) > ($2::timestamptz, $3::bigint))
+ORDER BY c.created_at, c.id
+LIMIT $4::int
+`
+
+type ListTopCommentsParams struct {
+	PresetID     int64
+	AfterCreated pgtype.Timestamptz
+	AfterID      pgtype.Int8
+	MaxRows      int32
+}
+
+type ListTopCommentsRow struct {
+	ID                int64
+	PublicID          string
+	Body              string
+	CreatedAt         time.Time
+	UpdatedAt         time.Time
+	DeletedAt         pgtype.Timestamptz
+	AuthorHandle      string
+	AuthorDisplayName string
+}
+
+// Oldest first. A deleted comment shows only when a reply under it is still there.
+func (q *Queries) ListTopComments(ctx context.Context, arg ListTopCommentsParams) ([]ListTopCommentsRow, error) {
+	rows, err := q.db.Query(ctx, listTopComments,
+		arg.PresetID,
+		arg.AfterCreated,
+		arg.AfterID,
+		arg.MaxRows,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListTopCommentsRow
+	for rows.Next() {
+		var i ListTopCommentsRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.PublicID,
+			&i.Body,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.DeletedAt,
+			&i.AuthorHandle,
+			&i.AuthorDisplayName,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const myReview = `-- name: MyReview :one
 SELECT stars, body, created_at, updated_at FROM reviews
 WHERE preset_id = $1 AND author_id = $2
@@ -138,6 +346,25 @@ func (q *Queries) PublishedPreset(ctx context.Context, publicID string) (Publish
 	var i PublishedPresetRow
 	err := row.Scan(&i.ID, &i.AuthorID)
 	return i, err
+}
+
+const updateComment = `-- name: UpdateComment :execrows
+UPDATE comments SET body = $1, updated_at = now()
+WHERE public_id = $2 AND author_id = $3 AND deleted_at IS NULL
+`
+
+type UpdateCommentParams struct {
+	Body     string
+	PublicID string
+	AuthorID int64
+}
+
+func (q *Queries) UpdateComment(ctx context.Context, arg UpdateCommentParams) (int64, error) {
+	result, err := q.db.Exec(ctx, updateComment, arg.Body, arg.PublicID, arg.AuthorID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
 }
 
 const upsertReview = `-- name: UpsertReview :one
