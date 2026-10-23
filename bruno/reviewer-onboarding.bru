@@ -1,0 +1,24 @@
+meta {
+  name: the second member picks a handle
+  type: http
+  seq: 32
+}
+
+post {
+  url: {{baseUrl}}/api/v1/me/onboarding
+  body: json
+  auth: none
+}
+
+headers {
+  Cookie: __Host-session={{reviewerSession}}
+  Origin: {{siteOrigin}}
+}
+
+body:json {
+  {"handle": "{{reviewer}}", "accept_terms": true}
+}
+
+assert {
+  res.status: eq 200
+}

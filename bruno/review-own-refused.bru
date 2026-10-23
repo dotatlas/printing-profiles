@@ -1,0 +1,25 @@
+meta {
+  name: an author cannot review their own preset
+  type: http
+  seq: 30
+}
+
+post {
+  url: {{baseUrl}}/api/v1/presets/{{filePresetId}}/reviews
+  body: json
+  auth: none
+}
+
+headers {
+  Cookie: __Host-session={{session}}
+  Origin: {{siteOrigin}}
+}
+
+body:json {
+  {"stars": 5}
+}
+
+assert {
+  res.status: eq 403
+  res.body.detail: eq you cannot review your own preset
+}

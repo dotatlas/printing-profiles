@@ -1,0 +1,27 @@
+meta {
+  name: review a preset
+  type: http
+  seq: 33
+}
+
+post {
+  url: {{baseUrl}}/api/v1/presets/{{filePresetId}}/reviews
+  body: json
+  auth: none
+}
+
+headers {
+  Cookie: __Host-session={{reviewerSession}}
+  Origin: {{siteOrigin}}
+}
+
+body:json {
+  {"stars": 4, "body": "Printed clean on my CORE One.\nA little stringing on travel."}
+}
+
+assert {
+  res.status: eq 201
+  res.body.stars: eq 4
+  res.body.author.handle: eq {{reviewer}}
+  res.body.edited: eq false
+}

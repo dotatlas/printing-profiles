@@ -1,0 +1,30 @@
+meta {
+  name: a second member signs in (dev only)
+  type: http
+  seq: 31
+}
+
+get {
+  url: {{baseUrl}}/api/v1/auth/fake/start?login={{reviewer}}&return=/presets
+  body: none
+  auth: none
+}
+
+settings {
+  followRedirects: false
+}
+
+script:pre-request {
+  // The author cannot review their own preset, so the review needs a second member.
+  bru.setVar("reviewer", "reviewer-" + Date.now().toString(36));
+}
+
+script:post-response {
+  const cookies = [].concat(res.getHeader("set-cookie") || []);
+  const session = cookies.find((c) => c.startsWith("__Host-session="));
+  bru.setVar("reviewerSession", session ? session.split(";")[0].split("=")[1] : "");
+}
+
+assert {
+  res.status: eq 303
+}

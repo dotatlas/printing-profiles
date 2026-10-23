@@ -78,6 +78,8 @@ type Preset struct {
 	DeletedAt     pgtype.Timestamptz
 	FileUploadID  pgtype.Int8
 	DownloadCount int64
+	RatingCount   int32
+	RatingSum     int32
 }
 
 type PresetView struct {
@@ -114,6 +116,8 @@ type PresetView struct {
 	FileSlicerVersion   string
 	FileSettings        []byte
 	DownloadCount       int64
+	RatingCount         int32
+	RatingSum           int32
 }
 
 type Printer struct {
@@ -127,6 +131,16 @@ type RateLimit struct {
 	Key         []byte
 	WindowStart time.Time
 	Count       int32
+}
+
+type Review struct {
+	ID        int64
+	PresetID  int64
+	AuthorID  int64
+	Stars     int16
+	Body      string
+	CreatedAt time.Time
+	UpdatedAt time.Time
 }
 
 type Session struct {

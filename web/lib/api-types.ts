@@ -232,6 +232,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/presets/{id}/reviews": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        /** List a published preset's reviews, newest first */
+        get: operations["listReviews"];
+        put?: never;
+        /** Review a published preset, or replace your review (signed in, with a handle, not the author) */
+        post: operations["saveReview"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/presets/{id}/reviews/mine": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        /** Your review of a preset (signed in) */
+        get: operations["myReview"];
+        put?: never;
+        post?: never;
+        /** Remove your review of a preset (signed in) */
+        delete: operations["deleteMyReview"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/me/presets": {
         parameters: {
             query?: never;
@@ -617,6 +657,33 @@ export interface components {
             file?: components["schemas"]["PresetFile"];
             /** Format: int64 */
             download_count: number;
+            rating?: components["schemas"]["Rating"];
+        };
+        Rating: {
+            count: number;
+            /** @description The average stars, with one decimal. */
+            average: number;
+        };
+        ReviewCreate: {
+            stars: number;
+            /** @description Plain text. */
+            body?: string;
+        };
+        Review: {
+            stars: number;
+            body: string;
+            author: {
+                handle: string;
+                display_name: string;
+            };
+            /** Format: date-time */
+            created_at: string;
+            edited: boolean;
+        };
+        ReviewPage: {
+            items: components["schemas"]["Review"][];
+            /** @description Send it as cursor to get the next page. It is missing on the last page. */
+            next_cursor?: string;
         };
         PresetFile: {
             /** @enum {string} */
@@ -790,6 +857,10 @@ export type License = components['schemas']['License'];
 export type PresetCreate = components['schemas']['PresetCreate'];
 export type PresetUpdate = components['schemas']['PresetUpdate'];
 export type Preset = components['schemas']['Preset'];
+export type Rating = components['schemas']['Rating'];
+export type ReviewCreate = components['schemas']['ReviewCreate'];
+export type Review = components['schemas']['Review'];
+export type ReviewPage = components['schemas']['ReviewPage'];
 export type PresetFile = components['schemas']['PresetFile'];
 export type UploadCreate = components['schemas']['UploadCreate'];
 export type UploadTicket = components['schemas']['UploadTicket'];
@@ -1300,6 +1371,124 @@ export interface operations {
                 };
                 content?: never;
             };
+            404: components["responses"]["Problem"];
+            default: components["responses"]["Problem"];
+        };
+    };
+    listReviews: {
+        parameters: {
+            query?: {
+                /** @description The next_cursor value from the page before. Leave it out for the first page. */
+                cursor?: components["parameters"]["Cursor"];
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description One page of reviews. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReviewPage"];
+                };
+            };
+            400: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            default: components["responses"]["Problem"];
+        };
+    };
+    saveReview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReviewCreate"];
+            };
+        };
+        responses: {
+            /** @description Your review replaced the one before. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Review"];
+                };
+            };
+            /** @description Your new review. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Review"];
+                };
+            };
+            400: components["responses"]["Problem"];
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            429: components["responses"]["Problem"];
+            default: components["responses"]["Problem"];
+        };
+    };
+    myReview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Your review. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Review"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            default: components["responses"]["Problem"];
+        };
+    };
+    deleteMyReview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Removed; the rating no longer counts it. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Problem"];
             404: components["responses"]["Problem"];
             default: components["responses"]["Problem"];
         };

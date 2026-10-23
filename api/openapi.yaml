@@ -444,6 +444,98 @@ paths:
           $ref: "#/components/responses/Problem"
         default:
           $ref: "#/components/responses/Problem"
+  /api/v1/presets/{id}/reviews:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: string, pattern: "^[a-z2-9]{8}$" }
+    get:
+      operationId: listReviews
+      summary: List a published preset's reviews, newest first
+      security: [] # Public: no sign-in needed.
+      parameters:
+        - $ref: "#/components/parameters/Cursor"
+        - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 50, default: 20 } }
+      responses:
+        "200":
+          description: One page of reviews.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ReviewPage" }
+        "400":
+          $ref: "#/components/responses/Problem"
+        "404":
+          $ref: "#/components/responses/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
+    post:
+      operationId: saveReview
+      summary: Review a published preset, or replace your review (signed in, with a handle, not the author)
+      security: [{session: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ReviewCreate" }
+      responses:
+        "200":
+          description: Your review replaced the one before.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Review" }
+        "201":
+          description: Your new review.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Review" }
+        "400":
+          $ref: "#/components/responses/Problem"
+        "401":
+          $ref: "#/components/responses/Problem"
+        "403":
+          $ref: "#/components/responses/Problem"
+        "404":
+          $ref: "#/components/responses/Problem"
+        "429":
+          $ref: "#/components/responses/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
+  /api/v1/presets/{id}/reviews/mine:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: string, pattern: "^[a-z2-9]{8}$" }
+    get:
+      operationId: myReview
+      summary: Your review of a preset (signed in)
+      security: [{session: []}]
+      responses:
+        "200":
+          description: Your review.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Review" }
+        "401":
+          $ref: "#/components/responses/Problem"
+        "404":
+          $ref: "#/components/responses/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
+    delete:
+      operationId: deleteMyReview
+      summary: Remove your review of a preset (signed in)
+      security: [{session: []}]
+      responses:
+        "204":
+          description: Removed; the rating no longer counts it.
+        "401":
+          $ref: "#/components/responses/Problem"
+        "404":
+          $ref: "#/components/responses/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
   /api/v1/me/presets:
     get:
       operationId: listMyPresets
@@ -1129,6 +1221,43 @@ components:
         download_count:
           type: integer
           format: int64
+        rating:
+          $ref: "#/components/schemas/Rating"
+    Rating:
+      type: object
+      required: [count, average]
+      properties:
+        count: { type: integer }
+        average: { type: number, description: "The average stars, with one decimal." }
+    ReviewCreate:
+      type: object
+      required: [stars]
+      additionalProperties: false
+      properties:
+        stars: { type: integer, minimum: 1, maximum: 5 }
+        body: { type: string, maxLength: 2000, description: Plain text. }
+    Review:
+      type: object
+      required: [stars, body, author, created_at, edited]
+      properties:
+        stars: { type: integer, minimum: 1, maximum: 5 }
+        body: { type: string }
+        author:
+          type: object
+          required: [handle, display_name]
+          properties:
+            handle: { type: string }
+            display_name: { type: string }
+        created_at: { type: string, format: date-time }
+        edited: { type: boolean }
+    ReviewPage:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/Review" }
+        next_cursor: { type: string, description: Send it as cursor to get the next page. It is missing on the last page. }
     PresetFile:
       type: object
       required: [slicer, kind, slicer_version, settings, download_url, file_url]

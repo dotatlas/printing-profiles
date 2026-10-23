@@ -1,0 +1,17 @@
+meta {
+  name: list a preset's reviews
+  type: http
+  seq: 34
+}
+
+get {
+  url: {{baseUrl}}/api/v1/presets/{{filePresetId}}/reviews
+  body: none
+  auth: none
+}
+
+assert {
+  res.status: eq 200
+  res.body.items[0].stars: eq 4
+  res.body.items[0].author.handle: eq {{reviewer}}
+}

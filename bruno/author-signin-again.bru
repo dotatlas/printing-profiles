@@ -1,0 +1,27 @@
+meta {
+  name: the first member signs in again (dev only)
+  type: http
+  seq: 37
+}
+
+get {
+  url: {{baseUrl}}/api/v1/auth/fake/start?login={{login}}&return=/presets
+  body: none
+  auth: none
+}
+
+settings {
+  followRedirects: false
+}
+
+script:post-response {
+  // The runner keeps the last session cookie it got and sends it too, so the first member signs in again before
+  // the sign-out requests that follow.
+  const cookies = [].concat(res.getHeader("set-cookie") || []);
+  const session = cookies.find((c) => c.startsWith("__Host-session="));
+  bru.setVar("session", session ? session.split(";")[0].split("=")[1] : "");
+}
+
+assert {
+  res.status: eq 303
+}

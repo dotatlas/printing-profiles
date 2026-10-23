@@ -131,6 +131,7 @@ type presetJSON struct {
 	PublishedAt   *time.Time  `json:"published_at,omitempty"`
 	File          *fileJSON   `json:"file,omitempty"`
 	DownloadCount int64       `json:"download_count"`
+	Rating        *ratingJSON `json:"rating,omitempty"`
 }
 
 // fileJSON is the checked preset file of a preset: what the check found, and where to download it.
@@ -152,7 +153,7 @@ func (s *Server) toPresetJSON(p db.PresetView, withDescription bool) presetJSON 
 		Material: materialRef{Slug: p.MaterialSlug, ProductName: p.MaterialProductName, Type: p.MaterialType, Brand: brandJSON{Slug: p.MaterialBrandSlug, Name: p.MaterialBrandName}},
 		NozzleMM: p.NozzleMm, Slicer: slicerJSON{Slug: p.SlicerSlug, Name: p.SlicerName},
 		SlicerVersion: p.SlicerVersion, License: p.License, Status: p.Status,
-		CreatedAt: p.CreatedAt, UpdatedAt: p.UpdatedAt, DownloadCount: p.DownloadCount,
+		CreatedAt: p.CreatedAt, UpdatedAt: p.UpdatedAt, DownloadCount: p.DownloadCount, Rating: rating(p.RatingCount, p.RatingSum),
 	}
 	if p.FileKey != "" {
 		out.File = &fileJSON{
@@ -377,13 +378,14 @@ func (s *Server) handleGetPreset(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, s.toPresetJSON(p, true))
 }
 
-// presetCursor encodes the position after one row as opaque text. decodePresetCursor reads it back.
-func presetCursor(p db.PresetView) string {
-	return base64.RawURLEncoding.EncodeToString([]byte(p.CreatedAt.UTC().Format(time.RFC3339Nano) + "," + strconv.FormatInt(p.ID, 10)))
+// encodeCursor writes the position after one row (its time and ID) as opaque text. The preset and review lists use
+// it, and decodeCursor reads it back.
+func encodeCursor(at time.Time, id int64) string {
+	return base64.RawURLEncoding.EncodeToString([]byte(at.UTC().Format(time.RFC3339Nano) + "," + strconv.FormatInt(id, 10)))
 }
 
-// decodePresetCursor reads a cursor that presetCursor made, or returns false for anything else.
-func decodePresetCursor(s string) (time.Time, int64, bool) {
+// decodeCursor reads a cursor that encodeCursor made, or returns false for anything else.
+func decodeCursor(s string) (time.Time, int64, bool) {
 	raw, err := base64.RawURLEncoding.DecodeString(s)
 	if err != nil {
 		return time.Time{}, 0, false
@@ -430,7 +432,7 @@ func (s *Server) handleListPresets(w http.ResponseWriter, r *http.Request) {
 		params.MaxRows = int32(n) + 1
 	}
 	if v := q.Get("cursor"); v != "" {
-		at, id, ok := decodePresetCursor(v)
+		at, id, ok := decodeCursor(v)
 		if !ok {
 			writeProblem(w, http.StatusBadRequest, "cursor is not valid")
 			return
@@ -447,7 +449,7 @@ func (s *Server) handleListPresets(w http.ResponseWriter, r *http.Request) {
 	page := pageJSON[presetJSON]{Items: make([]presetJSON, 0, len(rows))}
 	if len(rows) == int(params.MaxRows) {
 		rows = rows[:len(rows)-1]
-		page.NextCursor = presetCursor(rows[len(rows)-1])
+		page.NextCursor = encodeCursor(rows[len(rows)-1].CreatedAt, rows[len(rows)-1].ID)
 	}
 	for _, p := range rows {
 		page.Items = append(page.Items, s.toPresetJSON(p, false))

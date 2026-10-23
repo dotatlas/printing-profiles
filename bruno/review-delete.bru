@@ -1,0 +1,20 @@
+meta {
+  name: remove my review
+  type: http
+  seq: 36
+}
+
+delete {
+  url: {{baseUrl}}/api/v1/presets/{{filePresetId}}/reviews/mine
+  body: none
+  auth: none
+}
+
+headers {
+  Cookie: __Host-session={{reviewerSession}}
+  Origin: {{siteOrigin}}
+}
+
+assert {
+  res.status: eq 204
+}
