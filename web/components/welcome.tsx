@@ -114,9 +114,9 @@ export function Welcome() {
           />
           <span>
             I accept the{" "}
-            {/* A new tab, so the handle typed above stays here. */}
-            <Link href="/terms" target="_blank" rel="noopener">
-              terms of use<span className="sr-only"> (opens in a new tab)</span>
+            {/* A new tab, so the handle typed above stays here. The label starts with the visible words. */}
+            <Link href="/terms" target="_blank" rel="noopener" aria-label="terms of use (opens in a new tab)">
+              terms of use
             </Link>
             .
           </span>

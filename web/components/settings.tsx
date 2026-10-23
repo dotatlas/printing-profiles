@@ -200,8 +200,8 @@ function MethodsPanel({ error }: { error: string }) {
             </div>
             {!only && (
               <button type="button" className="btn btn-secondary" disabled={removing !== null} onClick={() => onRemove(m.id)}>
-                {removing === m.id ? "Removing…" : "Remove"}
-                <span className="sr-only"> {providerName(m.provider)}</span>
+                {/* The space stays outside the hidden span: a name computed from the span alone drops it. */}
+                {removing === m.id ? "Removing…" : "Remove"} <span className="sr-only">{providerName(m.provider)}</span>
               </button>
             )}
           </li>
@@ -303,9 +303,8 @@ function SessionsPanel({ onSignedOutEverywhere }: { onSignedOutEverywhere: () =>
             </div>
             {!s.current && (
               <button type="button" className="btn btn-secondary" disabled={ending !== null} onClick={() => onEnd(s.id)}>
-                {ending === s.id ? "Signing out…" : "Sign out"}
+                {ending === s.id ? "Signing out…" : "Sign out"}{" "}
                 <span className="sr-only">
-                  {" "}
                   {describeDevice(s.user_agent)}, active {timeAgo(s.last_seen_at)}
                 </span>
               </button>
