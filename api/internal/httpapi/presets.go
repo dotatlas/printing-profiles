@@ -132,6 +132,8 @@ type presetJSON struct {
 	File          *fileJSON   `json:"file,omitempty"`
 	DownloadCount int64       `json:"download_count"`
 	Rating        *ratingJSON `json:"rating,omitempty"`
+	Verified      bool        `json:"verified"`         // the author added at least one photo of a print
+	Photos        []photoJSON `json:"photos,omitempty"` // only in the answer for one preset
 }
 
 // fileJSON is the checked preset file of a preset: what the check found, and where to download it.
@@ -154,6 +156,7 @@ func (s *Server) toPresetJSON(p db.PresetView, withDescription bool) presetJSON 
 		NozzleMM: p.NozzleMm, Slicer: slicerJSON{Slug: p.SlicerSlug, Name: p.SlicerName},
 		SlicerVersion: p.SlicerVersion, License: p.License, Status: p.Status,
 		CreatedAt: p.CreatedAt, UpdatedAt: p.UpdatedAt, DownloadCount: p.DownloadCount, Rating: rating(p.RatingCount, p.RatingSum),
+		Verified: p.PhotoCount > 0,
 	}
 	if p.FileKey != "" {
 		out.File = &fileJSON{
@@ -375,7 +378,14 @@ func (s *Server) handleGetPreset(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, r, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, s.toPresetJSON(p, true))
+	out := s.toPresetJSON(p, true)
+	if p.PhotoCount > 0 {
+		if out.Photos, err = s.photosOf(r.Context(), p.ID); err != nil {
+			s.fail(w, r, err)
+			return
+		}
+	}
+	writeJSON(w, http.StatusOK, out)
 }
 
 // encodeCursor writes the position after one row (its time and ID) as opaque text. The preset and review lists use
@@ -422,6 +432,14 @@ func (s *Server) handleListPresets(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		params.Nozzle = pgtype.Float8{Float64: n, Valid: true}
+	}
+	switch q.Get("verified") {
+	case "":
+	case "true":
+		params.VerifiedOnly = true
+	default:
+		writeProblem(w, http.StatusBadRequest, "verified must be true")
+		return
 	}
 	if v := q.Get("limit"); v != "" {
 		n, err := strconv.Atoi(v)

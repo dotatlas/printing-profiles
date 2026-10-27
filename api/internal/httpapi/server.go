@@ -71,6 +71,8 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("DELETE /api/v1/comments/{id}", s.handleDeleteComment)
 	mux.HandleFunc("POST /api/v1/uploads", s.handleCreateUpload)
 	mux.HandleFunc("POST /api/v1/uploads/{id}/complete", s.handleCompleteUpload)
+	mux.HandleFunc("POST /api/v1/presets/{id}/photos", s.handleAddPhoto)
+	mux.HandleFunc("DELETE /api/v1/photos/{id}", s.handleDeletePhoto)
 	mux.HandleFunc("POST /api/v1/auth/signout", s.handleSignOut)
 	mux.HandleFunc("POST /api/v1/auth/signout-all", s.handleSignOutAll)
 	mux.HandleFunc("POST /api/v1/auth/signout-others", s.handleSignOutOthers)

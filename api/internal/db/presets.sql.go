@@ -84,7 +84,7 @@ func (q *Queries) DeletePreset(ctx context.Context, arg DeletePresetParams) (int
 }
 
 const getPreset = `-- name: GetPreset :one
-SELECT id, public_id, author_id, author_handle, author_display_name, title, slug, description, printer_slug, printer_model, printer_brand_slug, printer_brand_name, material_slug, material_product_name, material_type, material_brand_slug, material_brand_name, nozzle_mm, slicer_slug, slicer_name, slicer_version, license, status, created_at, updated_at, published_at, deleted_at, file_key, file_slicer, file_kind, file_slicer_version, file_settings, download_count, rating_count, rating_sum FROM preset_view
+SELECT id, public_id, author_id, author_handle, author_display_name, title, slug, description, printer_slug, printer_model, printer_brand_slug, printer_brand_name, material_slug, material_product_name, material_type, material_brand_slug, material_brand_name, nozzle_mm, slicer_slug, slicer_name, slicer_version, license, status, created_at, updated_at, published_at, deleted_at, file_key, file_slicer, file_kind, file_slicer_version, file_settings, download_count, rating_count, rating_sum, photo_count FROM preset_view
 WHERE public_id = $1 AND deleted_at IS NULL AND status <> 'hidden'
 `
 
@@ -128,12 +128,13 @@ func (q *Queries) GetPreset(ctx context.Context, publicID string) (PresetView, e
 		&i.DownloadCount,
 		&i.RatingCount,
 		&i.RatingSum,
+		&i.PhotoCount,
 	)
 	return i, err
 }
 
 const listMyPresets = `-- name: ListMyPresets :many
-SELECT id, public_id, author_id, author_handle, author_display_name, title, slug, description, printer_slug, printer_model, printer_brand_slug, printer_brand_name, material_slug, material_product_name, material_type, material_brand_slug, material_brand_name, nozzle_mm, slicer_slug, slicer_name, slicer_version, license, status, created_at, updated_at, published_at, deleted_at, file_key, file_slicer, file_kind, file_slicer_version, file_settings, download_count, rating_count, rating_sum FROM preset_view
+SELECT id, public_id, author_id, author_handle, author_display_name, title, slug, description, printer_slug, printer_model, printer_brand_slug, printer_brand_name, material_slug, material_product_name, material_type, material_brand_slug, material_brand_name, nozzle_mm, slicer_slug, slicer_name, slicer_version, license, status, created_at, updated_at, published_at, deleted_at, file_key, file_slicer, file_kind, file_slicer_version, file_settings, download_count, rating_count, rating_sum, photo_count FROM preset_view
 WHERE author_id = $1 AND deleted_at IS NULL
 ORDER BY created_at DESC, id DESC
 LIMIT 100
@@ -185,6 +186,7 @@ func (q *Queries) ListMyPresets(ctx context.Context, authorID int64) ([]PresetVi
 			&i.DownloadCount,
 			&i.RatingCount,
 			&i.RatingSum,
+			&i.PhotoCount,
 		); err != nil {
 			return nil, err
 		}
@@ -197,7 +199,7 @@ func (q *Queries) ListMyPresets(ctx context.Context, authorID int64) ([]PresetVi
 }
 
 const listPresets = `-- name: ListPresets :many
-SELECT id, public_id, author_id, author_handle, author_display_name, title, slug, description, printer_slug, printer_model, printer_brand_slug, printer_brand_name, material_slug, material_product_name, material_type, material_brand_slug, material_brand_name, nozzle_mm, slicer_slug, slicer_name, slicer_version, license, status, created_at, updated_at, published_at, deleted_at, file_key, file_slicer, file_kind, file_slicer_version, file_settings, download_count, rating_count, rating_sum FROM preset_view
+SELECT id, public_id, author_id, author_handle, author_display_name, title, slug, description, printer_slug, printer_model, printer_brand_slug, printer_brand_name, material_slug, material_product_name, material_type, material_brand_slug, material_brand_name, nozzle_mm, slicer_slug, slicer_name, slicer_version, license, status, created_at, updated_at, published_at, deleted_at, file_key, file_slicer, file_kind, file_slicer_version, file_settings, download_count, rating_count, rating_sum, photo_count FROM preset_view
 WHERE status = 'published' AND deleted_at IS NULL
   AND ($1::text IS NULL OR printer_slug = $1)
   AND ($2::text IS NULL OR material_slug = $2)
@@ -206,10 +208,11 @@ WHERE status = 'published' AND deleted_at IS NULL
   AND ($5::float8 IS NULL OR nozzle_mm = $5)
   AND ($6::text IS NULL OR slicer_slug = $6)
   AND ($7::text IS NULL OR author_handle = $7)
-  AND ($8::timestamptz IS NULL
-       OR (created_at, id) < ($8::timestamptz, $9::bigint))
+  AND (NOT $8::bool OR photo_count > 0)
+  AND ($9::timestamptz IS NULL
+       OR (created_at, id) < ($9::timestamptz, $10::bigint))
 ORDER BY created_at DESC, id DESC
-LIMIT $10::int
+LIMIT $11::int
 `
 
 type ListPresetsParams struct {
@@ -220,6 +223,7 @@ type ListPresetsParams struct {
 	Nozzle       pgtype.Float8
 	Slicer       pgtype.Text
 	Author       pgtype.Text
+	VerifiedOnly bool
 	AfterCreated pgtype.Timestamptz
 	AfterID      pgtype.Int8
 	MaxRows      int32
@@ -234,6 +238,7 @@ func (q *Queries) ListPresets(ctx context.Context, arg ListPresetsParams) ([]Pre
 		arg.Nozzle,
 		arg.Slicer,
 		arg.Author,
+		arg.VerifiedOnly,
 		arg.AfterCreated,
 		arg.AfterID,
 		arg.MaxRows,
@@ -281,6 +286,7 @@ func (q *Queries) ListPresets(ctx context.Context, arg ListPresetsParams) ([]Pre
 			&i.DownloadCount,
 			&i.RatingCount,
 			&i.RatingSum,
+			&i.PhotoCount,
 		); err != nil {
 			return nil, err
 		}

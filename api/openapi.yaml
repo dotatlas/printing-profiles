@@ -303,6 +303,7 @@ paths:
         - { name: nozzle, in: query, schema: { $ref: "#/components/schemas/Nozzle" } }
         - { name: slicer, in: query, description: A slicer slug., schema: { type: string, maxLength: 100 } }
         - { name: author, in: query, description: A member's handle., schema: { type: string, maxLength: 100 } }
+        - { name: verified, in: query, description: Only photo-verified presets., schema: { type: string, enum: ["true"] } }
         - $ref: "#/components/parameters/Cursor"
         - name: limit
           in: query
@@ -587,6 +588,69 @@ paths:
         "404":
           $ref: "#/components/responses/Problem"
         "429":
+          $ref: "#/components/responses/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
+  /api/v1/presets/{id}/photos:
+    post:
+      operationId: addPhoto
+      summary: Add a checked photo of a print to your own preset (signed in, the author only)
+      description: At most 10 photos a preset. A preset with a photo is photo verified. Another member's preset is a 404.
+      security: [{session: []}]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, pattern: "^[a-z2-9]{8}$" }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PhotoCreate"
+      responses:
+        "201":
+          description: The added photo.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Photo"
+        "400":
+          $ref: "#/components/responses/Problem"
+        "401":
+          $ref: "#/components/responses/Problem"
+        "403":
+          $ref: "#/components/responses/Problem"
+        "404":
+          $ref: "#/components/responses/Problem"
+        "409":
+          description: The photo is already on a preset, or the preset has 10 photos.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+        "429":
+          $ref: "#/components/responses/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
+  /api/v1/photos/{id}:
+    delete:
+      operationId: deletePhoto
+      summary: Remove a photo from your own preset (signed in, the author only)
+      security: [{session: []}]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, pattern: "^[a-z2-9]{12}$" }
+      responses:
+        "204":
+          description: Removed.
+        "401":
+          $ref: "#/components/responses/Problem"
+        "403":
+          $ref: "#/components/responses/Problem"
+        "404":
           $ref: "#/components/responses/Problem"
         default:
           $ref: "#/components/responses/Problem"
@@ -1368,7 +1432,7 @@ components:
             SuperSlicer file for those two, an OrcaSlicer format file for OrcaSlicer, Bambu Studio or Creality Print.
     Preset:
       type: object
-      required: [id, slug, title, author, printer, material, nozzle_mm, slicer, slicer_version, license, status, created_at, updated_at, download_count]
+      required: [id, slug, title, author, printer, material, nozzle_mm, slicer, slicer_version, license, status, created_at, updated_at, download_count, verified]
       properties:
         id:
           type: string
@@ -1429,6 +1493,13 @@ components:
           format: int64
         rating:
           $ref: "#/components/schemas/Rating"
+        verified:
+          type: boolean
+          description: Photo verified, that is the author added at least one photo of a print.
+        photos:
+          type: array
+          description: The photos, oldest first. Only in the answer for one preset, and only when there are some.
+          items: { $ref: "#/components/schemas/Photo" }
     Rating:
       type: object
       required: [count, average]
@@ -1571,6 +1642,23 @@ components:
         width: { type: integer, description: "A photo's width after the check, in pixels." }
         height: { type: integer, description: "A photo's height after the check, in pixels." }
         thumb_url: { type: string, format: uri, description: A photo's thumbnail on the files origin. }
+    Photo:
+      type: object
+      required: [id, url, thumb_url, width, height, alt]
+      properties:
+        id: { type: string }
+        url: { type: string, format: uri, description: "The full image (JPEG, long side at most 2048 px) on the files origin." }
+        thumb_url: { type: string, format: uri, description: "The thumbnail (JPEG, long side at most 480 px)." }
+        width: { type: integer }
+        height: { type: integer }
+        alt: { type: string }
+    PhotoCreate:
+      type: object
+      required: [upload, alt]
+      additionalProperties: false
+      properties:
+        upload: { type: string, pattern: "^[a-z2-9]{16}$", description: The ID of your own checked photo upload. }
+        alt: { type: string, minLength: 1, maxLength: 200, description: "What the photo shows, for people who cannot see it." }
     PresetPage:
       type: object
       required: [items]

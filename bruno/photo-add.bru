@@ -1,0 +1,30 @@
+meta {
+  name: add the photo to the preset
+  type: http
+  seq: 33
+}
+
+post {
+  url: {{baseUrl}}/api/v1/presets/{{filePresetId}}/photos
+  body: json
+  auth: none
+}
+
+headers {
+  Cookie: __Host-session={{session}}
+  Origin: {{siteOrigin}}
+}
+
+body:json {
+  {"upload": "{{photoUploadId}}", "alt": "The first layer of a calibration cube"}
+}
+
+script:post-response {
+  bru.setVar("photoId", res.body.id);
+}
+
+assert {
+  res.status: eq 201
+  res.body.alt: eq The first layer of a calibration cube
+  res.body.width: eq 16
+}

@@ -1,0 +1,16 @@
+meta {
+  name: browse only photo-verified presets
+  type: http
+  seq: 34
+}
+
+get {
+  url: {{baseUrl}}/api/v1/presets?verified=true
+  body: none
+  auth: none
+}
+
+assert {
+  res.status: eq 200
+  res.body.items[0].verified: eq true
+}

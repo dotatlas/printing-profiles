@@ -76,6 +76,15 @@ type OauthFlow struct {
 	ExpiresAt  time.Time
 }
 
+type Photo struct {
+	ID        int64
+	PublicID  string
+	PresetID  int64
+	UploadID  int64
+	Alt       string
+	CreatedAt time.Time
+}
+
 type Preset struct {
 	ID            int64
 	PublicID      string
@@ -98,6 +107,7 @@ type Preset struct {
 	DownloadCount int64
 	RatingCount   int32
 	RatingSum     int32
+	PhotoCount    int32
 }
 
 type PresetView struct {
@@ -136,6 +146,7 @@ type PresetView struct {
 	DownloadCount       int64
 	RatingCount         int32
 	RatingSum           int32
+	PhotoCount          int32
 }
 
 type Printer struct {

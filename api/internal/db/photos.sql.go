@@ -9,6 +9,121 @@ import (
 	"context"
 )
 
+const addPhoto = `-- name: AddPhoto :exec
+INSERT INTO photos (public_id, preset_id, upload_id, alt)
+VALUES ($1, $2, $3, $4)
+`
+
+type AddPhotoParams struct {
+	PublicID string
+	PresetID int64
+	UploadID int64
+	Alt      string
+}
+
+func (q *Queries) AddPhoto(ctx context.Context, arg AddPhotoParams) error {
+	_, err := q.db.Exec(ctx, addPhoto,
+		arg.PublicID,
+		arg.PresetID,
+		arg.UploadID,
+		arg.Alt,
+	)
+	return err
+}
+
+const authorPreset = `-- name: AuthorPreset :one
+SELECT id FROM presets
+WHERE public_id = $1 AND author_id = $2 AND deleted_at IS NULL
+`
+
+type AuthorPresetParams struct {
+	PublicID string
+	AuthorID int64
+}
+
+// The author's own preset, a draft or published.
+func (q *Queries) AuthorPreset(ctx context.Context, arg AuthorPresetParams) (int64, error) {
+	row := q.db.QueryRow(ctx, authorPreset, arg.PublicID, arg.AuthorID)
+	var id int64
+	err := row.Scan(&id)
+	return id, err
+}
+
+const countPhotos = `-- name: CountPhotos :one
+SELECT count(*)::int FROM photos WHERE preset_id = $1
+`
+
+func (q *Queries) CountPhotos(ctx context.Context, presetID int64) (int32, error) {
+	row := q.db.QueryRow(ctx, countPhotos, presetID)
+	var column_1 int32
+	err := row.Scan(&column_1)
+	return column_1, err
+}
+
+const deletePhoto = `-- name: DeletePhoto :execrows
+DELETE FROM photos ph USING presets p
+WHERE ph.preset_id = p.id AND ph.public_id = $1 AND p.author_id = $2
+  AND p.deleted_at IS NULL
+`
+
+type DeletePhotoParams struct {
+	PublicID string
+	AuthorID int64
+}
+
+func (q *Queries) DeletePhoto(ctx context.Context, arg DeletePhotoParams) (int64, error) {
+	result, err := q.db.Exec(ctx, deletePhoto, arg.PublicID, arg.AuthorID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
+const listPhotos = `-- name: ListPhotos :many
+SELECT ph.public_id, ph.alt, u.file_key, u.thumb_key, u.width, u.height
+FROM photos ph
+JOIN uploads u ON u.id = ph.upload_id
+WHERE ph.preset_id = $1
+ORDER BY ph.created_at, ph.id
+`
+
+type ListPhotosRow struct {
+	PublicID string
+	Alt      string
+	FileKey  string
+	ThumbKey string
+	Width    int32
+	Height   int32
+}
+
+// Oldest first, so the first photo that the author added leads.
+func (q *Queries) ListPhotos(ctx context.Context, presetID int64) ([]ListPhotosRow, error) {
+	rows, err := q.db.Query(ctx, listPhotos, presetID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListPhotosRow
+	for rows.Next() {
+		var i ListPhotosRow
+		if err := rows.Scan(
+			&i.PublicID,
+			&i.Alt,
+			&i.FileKey,
+			&i.ThumbKey,
+			&i.Width,
+			&i.Height,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const markPhotoReady = `-- name: MarkPhotoReady :execrows
 
 UPDATE uploads SET status = 'ready', sha256 = $1, file_key = $2,
@@ -25,7 +140,8 @@ type MarkPhotoReadyParams struct {
 	ID       int64
 }
 
-// Result photos.
+// Result photos. Only the author of a preset adds and removes its photos; the author_id conditions make another
+// member's preset look missing.
 // Only a pending upload changes, so two "complete" calls at the same time cannot both write.
 func (q *Queries) MarkPhotoReady(ctx context.Context, arg MarkPhotoReadyParams) (int64, error) {
 	result, err := q.db.Exec(ctx, markPhotoReady,
@@ -40,4 +156,22 @@ func (q *Queries) MarkPhotoReady(ctx context.Context, arg MarkPhotoReadyParams) 
 		return 0, err
 	}
 	return result.RowsAffected(), nil
+}
+
+const readyPhoto = `-- name: ReadyPhoto :one
+SELECT id FROM uploads
+WHERE public_id = $1 AND owner_id = $2 AND status = 'ready' AND kind = 'photo'
+`
+
+type ReadyPhotoParams struct {
+	PublicID string
+	OwnerID  int64
+}
+
+// A preset can take only its author's own checked photo.
+func (q *Queries) ReadyPhoto(ctx context.Context, arg ReadyPhotoParams) (int64, error) {
+	row := q.db.QueryRow(ctx, readyPhoto, arg.PublicID, arg.OwnerID)
+	var id int64
+	err := row.Scan(&id)
+	return id, err
 }

@@ -295,6 +295,43 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/presets/{id}/photos": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Add a checked photo of a print to your own preset (signed in, the author only)
+         * @description At most 10 photos a preset. A preset with a photo is photo verified. Another member's preset is a 404.
+         */
+        post: operations["addPhoto"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/photos/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Remove a photo from your own preset (signed in, the author only) */
+        delete: operations["deletePhoto"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/comments/{id}": {
         parameters: {
             query?: never;
@@ -762,6 +799,10 @@ export interface components {
             /** Format: int64 */
             download_count: number;
             rating?: components["schemas"]["Rating"];
+            /** @description Photo verified, that is the author added at least one photo of a print. */
+            verified: boolean;
+            /** @description The photos, oldest first. Only in the answer for one preset, and only when there are some. */
+            photos?: components["schemas"]["Photo"][];
         };
         Rating: {
             count: number;
@@ -907,6 +948,28 @@ export interface components {
              */
             thumb_url?: string;
         };
+        Photo: {
+            id: string;
+            /**
+             * Format: uri
+             * @description The full image (JPEG, long side at most 2048 px) on the files origin.
+             */
+            url: string;
+            /**
+             * Format: uri
+             * @description The thumbnail (JPEG, long side at most 480 px).
+             */
+            thumb_url: string;
+            width: number;
+            height: number;
+            alt: string;
+        };
+        PhotoCreate: {
+            /** @description The ID of your own checked photo upload. */
+            upload: string;
+            /** @description What the photo shows, for people who cannot see it. */
+            alt: string;
+        };
         PresetPage: {
             items: components["schemas"]["Preset"][];
             /** @description Send it as cursor to get the next page. It is missing on the last page. */
@@ -1019,6 +1082,8 @@ export type UploadCreate = components['schemas']['UploadCreate'];
 export type UploadTicket = components['schemas']['UploadTicket'];
 export type KeySetting = components['schemas']['KeySetting'];
 export type Upload = components['schemas']['Upload'];
+export type Photo = components['schemas']['Photo'];
+export type PhotoCreate = components['schemas']['PhotoCreate'];
 export type PresetPage = components['schemas']['PresetPage'];
 export type Me = components['schemas']['Me'];
 export type Identity = components['schemas']['Identity'];
@@ -1362,6 +1427,8 @@ export interface operations {
                 slicer?: string;
                 /** @description A member's handle. */
                 author?: string;
+                /** @description Only photo-verified presets. */
+                verified?: "true";
                 /** @description The next_cursor value from the page before. Leave it out for the first page. */
                 cursor?: components["parameters"]["Cursor"];
                 limit?: number;
@@ -1706,6 +1773,71 @@ export interface operations {
             403: components["responses"]["Problem"];
             404: components["responses"]["Problem"];
             429: components["responses"]["Problem"];
+            default: components["responses"]["Problem"];
+        };
+    };
+    addPhoto: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PhotoCreate"];
+            };
+        };
+        responses: {
+            /** @description The added photo. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Photo"];
+                };
+            };
+            400: components["responses"]["Problem"];
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            /** @description The photo is already on a preset, or the preset has 10 photos. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            429: components["responses"]["Problem"];
+            default: components["responses"]["Problem"];
+        };
+    };
+    deletePhoto: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Removed. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
             default: components["responses"]["Problem"];
         };
     };
@@ -2287,6 +2419,7 @@ type ReadonlyArray<T> = [
 ] extends [
     unknown[]
 ] ? Readonly<Exclude<T, undefined>> : Readonly<Exclude<T, undefined>[]>;
+export const pathsApiV1PresetsGetParametersQueryVerifiedValues: ReadonlyArray<FlattenedDeepRequired<paths>["/api/v1/presets"]["get"]["parameters"]["query"]["verified"]> = ["true"];
 export const pathsApiV1AuthProviderStartGetParametersQueryLinkValues: ReadonlyArray<FlattenedDeepRequired<paths>["/api/v1/auth/{provider}/start"]["get"]["parameters"]["query"]["link"]> = ["1"];
 export const materialTypeValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["MaterialType"]> = ["PLA", "PETG", "ABS", "ASA", "TPU", "PA", "PC"];
 export const materialDiameter_mmValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["Material"]["diameter_mm"]> = [1.75, 2.85];

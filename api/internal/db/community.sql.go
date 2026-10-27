@@ -189,7 +189,7 @@ func (q *Queries) IsBookmarked(ctx context.Context, arg IsBookmarkedParams) (boo
 }
 
 const listBookmarks = `-- name: ListBookmarks :many
-SELECT v.id, v.public_id, v.author_id, v.author_handle, v.author_display_name, v.title, v.slug, v.description, v.printer_slug, v.printer_model, v.printer_brand_slug, v.printer_brand_name, v.material_slug, v.material_product_name, v.material_type, v.material_brand_slug, v.material_brand_name, v.nozzle_mm, v.slicer_slug, v.slicer_name, v.slicer_version, v.license, v.status, v.created_at, v.updated_at, v.published_at, v.deleted_at, v.file_key, v.file_slicer, v.file_kind, v.file_slicer_version, v.file_settings, v.download_count, v.rating_count, v.rating_sum FROM bookmarks b
+SELECT v.id, v.public_id, v.author_id, v.author_handle, v.author_display_name, v.title, v.slug, v.description, v.printer_slug, v.printer_model, v.printer_brand_slug, v.printer_brand_name, v.material_slug, v.material_product_name, v.material_type, v.material_brand_slug, v.material_brand_name, v.nozzle_mm, v.slicer_slug, v.slicer_name, v.slicer_version, v.license, v.status, v.created_at, v.updated_at, v.published_at, v.deleted_at, v.file_key, v.file_slicer, v.file_kind, v.file_slicer_version, v.file_settings, v.download_count, v.rating_count, v.rating_sum, v.photo_count FROM bookmarks b
 JOIN preset_view v ON v.id = b.preset_id
 WHERE b.user_id = $1 AND v.status = 'published' AND v.deleted_at IS NULL
 ORDER BY b.created_at DESC
@@ -243,6 +243,7 @@ func (q *Queries) ListBookmarks(ctx context.Context, userID int64) ([]PresetView
 			&i.DownloadCount,
 			&i.RatingCount,
 			&i.RatingSum,
+			&i.PhotoCount,
 		); err != nil {
 			return nil, err
 		}
