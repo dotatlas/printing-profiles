@@ -1,5 +1,5 @@
 import { ApiError, call } from "./account";
-import type { Preset, PresetCreate, PresetUpdate, Upload, UploadTicket } from "./api-types";
+import type { Photo, Preset, PresetCreate, PresetUpdate, Upload, UploadTicket } from "./api-types";
 
 // formFields are the fields of PresetCreate that an API message can name. The longest name comes first, so
 // "slicer_version" wins over "slicer".
@@ -43,10 +43,27 @@ export async function deletePreset(id: string) {
   await call<void>(`/api/v1/presets/${checkID(id)}`, "DELETE");
 }
 
-// uploadPresetFile sends a preset file in three steps: a ticket from the API, the file straight to the bucket URL of
-// the ticket, then "complete", which checks it. The preset form calls it and shows what the check found.
-export async function uploadPresetFile(file: File): Promise<Upload> {
-  const ticket = await call<UploadTicket>("/api/v1/uploads", "POST", { kind: "preset_file", size: file.size });
+// uploadPresetFile sends a preset file and gives what the check found. The preset form calls it.
+export function uploadPresetFile(file: File): Promise<Upload> {
+  return upload(file, "preset_file");
+}
+
+// addPhoto sends a photo, has it checked, and adds it to the member's own preset with its alt text. The photos
+// section of the edit page calls it. removePhoto takes a photo off the preset.
+export async function addPhoto(presetId: string, file: File, alt: string): Promise<Photo> {
+  const checked = await upload(file, "photo");
+  return call<Photo>(`/api/v1/presets/${checkID(presetId)}/photos`, "POST", { upload: checked.id, alt });
+}
+
+export async function removePhoto(id: string) {
+  if (!/^[a-km-np-z2-9]{12}$/.test(id)) throw new Error("not a photo ID");
+  await call<void>(`/api/v1/photos/${id}`, "DELETE");
+}
+
+// upload sends a file in three steps: a ticket from the API, the file straight to the bucket URL of the ticket, then
+// "complete", which checks it. uploadPresetFile and addPhoto use it.
+async function upload(file: File, kind: "preset_file" | "photo"): Promise<Upload> {
+  const ticket = await call<UploadTicket>("/api/v1/uploads", "POST", { kind, size: file.size });
   let sent: Response;
   try {
     // No credentials: the bucket must never get the session cookie, and the signed URL is the permission.

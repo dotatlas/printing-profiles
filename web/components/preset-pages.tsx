@@ -9,6 +9,7 @@ import { formatDate } from "../lib/format";
 import { deletePreset, getMyPreset, listMyPresets, updatePreset } from "../lib/my-presets";
 import { materialLabel, nozzleLabel, parsePresetParam, presetPath, printerLabel } from "../lib/presets";
 import { Notice } from "./account-ui";
+import { PhotoManager } from "./photo-manager";
 import { PresetForm } from "./preset-form";
 import type { Catalog } from "./preset-list";
 import { PresetView } from "./preset-view";
@@ -42,8 +43,9 @@ function useSavedMark(): string | null {
 }
 
 // SavedNotice confirms a save at the top of the preset page and takes the focus, so a screen reader reads it. After
-// a publish it offers the link to copy, for the chat or forum thread where the author shares it.
-export function SavedNotice() {
+// a publish it offers the link to copy, for the chat or forum thread where the author shares it, and, with
+// photosHref, a link to add a photo to a preset that has none.
+export function SavedNotice({ photosHref }: { photosHref?: string }) {
   const mark = useSavedMark();
   const box = useRef<HTMLDivElement>(null);
   const [copied, setCopied] = useState<"" | "done" | "failed">("");
@@ -73,6 +75,14 @@ export function SavedNotice() {
             </button>
             {copied === "failed" && " The browser did not allow it: copy the address from the address bar."}
           </>
+        )}
+        {mark === "published" && photosHref && (
+          <span className="mt-1 block">
+            <Link href={photosHref} className="font-medium underline underline-offset-2">
+              Add a photo of a print
+            </Link>{" "}
+            to mark it Photo verified.
+          </span>
         )}
       </Notice>
     </div>
@@ -143,6 +153,7 @@ export function EditPreset({ catalog, id }: { catalog: Catalog; id: string }) {
           onSaved={(p) => location.assign(savedPath(p, preset.status))}
         />
       </div>
+      <PhotoManager presetId={preset.id} initial={preset.photos ?? []} />
       <DeleteSection id={preset.id} />
     </>
   );

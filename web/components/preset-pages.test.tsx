@@ -167,6 +167,12 @@ test("after a publish the page says so, takes the focus, and copies the link", a
   expect(writeText).toHaveBeenCalledWith(`${location.origin}${location.pathname}`);
 });
 
+test("after a publish without photos the notice asks for a photo, and links to the photos of the edit page", () => {
+  search = "saved=published";
+  render(<SavedNotice photosHref="/presets/fast-pla-ab3defgh/edit#photos" />);
+  expect(screen.getByRole("link", { name: "Add a photo of a print" }).getAttribute("href")).toBe("/presets/fast-pla-ab3defgh/edit#photos");
+});
+
 test("without a saved mark the notice shows nothing", () => {
   const { container } = render(<SavedNotice />);
   expect(container.innerHTML).toBe("");

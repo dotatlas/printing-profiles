@@ -64,7 +64,7 @@ export default async function PresetPage({ params }: PageProps<"/presets/[slug]"
       // The notice reads the address, so it waits inside Suspense; the page HTML stays the same for everyone.
       notice={
         <Suspense>
-          <SavedNotice />
+          <SavedNotice photosHref={preset.verified ? undefined : `${presetPath(preset)}/edit#photos`} />
         </Suspense>
       }
     />

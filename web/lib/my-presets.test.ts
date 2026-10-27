@@ -1,6 +1,6 @@
 import { afterEach, expect, test, vi } from "vitest";
 import { ApiError } from "./account";
-import { createPreset, deletePreset, fieldOfProblem, updatePreset, uploadPresetFile } from "./my-presets";
+import { addPhoto, createPreset, deletePreset, fieldOfProblem, removePhoto, updatePreset, uploadPresetFile } from "./my-presets";
 
 afterEach(() => vi.unstubAllGlobals());
 
@@ -82,4 +82,33 @@ test("uploadPresetFile says plainly when the bucket refuses the file", async () 
       : new Response("denied", { status: 403 }),
   );
   await expect(uploadPresetFile(new File(["x"], "x.ini"))).rejects.toMatchObject({ detail: "The file did not upload. Try again." });
+});
+
+test("addPhoto uploads a photo, has it checked, then adds it to the preset with its alt text", async () => {
+  const calls: { url: string; init: RequestInit }[] = [];
+  vi.stubGlobal("fetch", async (url: string, init: RequestInit) => {
+    calls.push({ url, init });
+    if (url.endsWith("/api/v1/uploads")) {
+      return new Response(JSON.stringify({ id: "abcdefghjkmnpqrs", url: "https://bucket.test/u/p?sig=1", method: "PUT", headers: { "Content-Type": "application/octet-stream" } }), { status: 201 });
+    }
+    if (url.startsWith("https://bucket.test/")) return new Response(null, { status: 200 });
+    if (url.endsWith("/complete")) return new Response(JSON.stringify({ id: "abcdefghjkmnpqrs", status: "ready", width: 64, height: 32 }), { status: 200 });
+    return new Response(JSON.stringify({ id: "bcdefghjkmnp", alt: "The cube" }), { status: 201 });
+  });
+  const photo = new File([new Uint8Array([0xff, 0xd8, 0xff])], "cube.jpg");
+
+  expect(await addPhoto("ab3defgh", photo, "The cube")).toMatchObject({ id: "bcdefghjkmnp" });
+  expect(JSON.parse(String(calls[0].init.body))).toEqual({ kind: "photo", size: photo.size });
+  expect(calls[1].init.credentials).toBeUndefined();
+  expect(calls[3].url).toMatch(/\/api\/v1\/presets\/ab3defgh\/photos$/);
+  expect(JSON.parse(String(calls[3].init.body))).toEqual({ upload: "abcdefghjkmnpqrs", alt: "The cube" });
+});
+
+test("removePhoto refuses an ID that is not a photo ID before it calls the API", async () => {
+  const calls = stubFetch(204, null);
+  await expect(removePhoto("../presets")).rejects.toThrow();
+  expect(calls).toHaveLength(0);
+  await removePhoto("bcdefghjkmnp");
+  expect(calls[0]).toMatchObject({ init: { method: "DELETE" } });
+  expect(calls[0].url).toMatch(/\/api\/v1\/photos\/bcdefghjkmnp$/);
 });
