@@ -57,12 +57,19 @@ test("a visitor reads the thread and gets a sign-in link", async () => {
   stubAPI(null, []);
   render(
     <SessionProvider>
-      <Comments presetId="ab3defgh" initial={[c("aaaaaaaaaaaa", "asker", "Which plate?", [c("bbbbbbbbbbbb", "maker", "Textured PEI.")])]} />
+      <Comments
+        presetId="ab3defgh"
+        authorHandle="maker"
+        initial={[c("aaaaaaaaaaaa", "asker", "Which plate?", [c("bbbbbbbbbbbb", "maker", "Textured PEI.")])]}
+      />
     </SessionProvider>,
   );
   expect(screen.getByText("Which plate?")).toBeDefined();
   expect(screen.getByText("Textured PEI.")).toBeDefined();
   expect(screen.getByRole("link", { name: "@maker" }).getAttribute("href")).toBe("/u/maker");
+  // The preset's author is marked in the thread; other members are not.
+  expect(within(screen.getByText("Textured PEI.").closest("article") as HTMLElement).getByText("Author")).toBeDefined();
+  expect(within(screen.getByText("Which plate?").closest("article") as HTMLElement).queryAllByText("Author")).toHaveLength(1);
   expect(await screen.findByRole("link", { name: "Sign in to comment" })).toBeDefined();
   expect(screen.queryByRole("button", { name: /^Reply/ })).toBeNull();
 });
@@ -71,7 +78,7 @@ test("a member comments, replies, edits and deletes their own comment", async ()
   const writes = stubAPI(member, [c("aaaaaaaaaaaa", "asker", "Which plate?")]);
   render(
     <SessionProvider>
-      <Comments presetId="ab3defgh" initial={[c("aaaaaaaaaaaa", "asker", "Which plate?")]} />
+      <Comments presetId="ab3defgh" authorHandle="maker" initial={[c("aaaaaaaaaaaa", "asker", "Which plate?")]} />
     </SessionProvider>,
   );
   // Another member's comment has Reply but no Edit or Delete.
@@ -110,10 +117,40 @@ test("an empty comment is refused before any call", async () => {
   const writes = stubAPI(member, []);
   render(
     <SessionProvider>
-      <Comments presetId="ab3defgh" initial={[]} />
+      <Comments presetId="ab3defgh" authorHandle="maker" initial={[]} />
     </SessionProvider>,
   );
   fireEvent.click(await screen.findByRole("button", { name: "Post comment" }));
   expect(screen.getByText("Write something first.")).toBeDefined();
   expect(writes).toHaveLength(0);
+});
+
+test("a long thread shows more on request, and a new comment past the first page stays in view", async () => {
+  // The fake API pages the thread by 2: the cursor is the index of the next comment.
+  let items = [c("aaaaaaaaaaaa", "a1", "One."), c("bbbbbbbbbbbb", "a2", "Two."), c("cccccccccccc", "a3", "Three.")];
+  vi.stubGlobal("fetch", async (url: string, init?: RequestInit) => {
+    const json = (status: number, body: unknown) => new Response(JSON.stringify(body), { status });
+    if (url.endsWith("/api/v1/me")) return json(200, member);
+    if (init?.method === "POST") {
+      const made = c("dddddddddddd", "tester", JSON.parse(String(init.body)).body);
+      items = [...items, made];
+      return json(201, made);
+    }
+    const from = Number(new URL(url).searchParams.get("cursor") ?? 0);
+    return json(200, { items: items.slice(from, from + 2), next_cursor: from + 2 < items.length ? String(from + 2) : undefined });
+  });
+  render(
+    <SessionProvider>
+      <Comments presetId="ab3defgh" authorHandle="maker" initial={items.slice(0, 2)} next="2" />
+    </SessionProvider>,
+  );
+  expect(screen.queryByText("Three.")).toBeNull();
+  fireEvent.click(await screen.findByRole("button", { name: "Show more comments" }));
+  expect(await screen.findByText("Three.")).toBeDefined();
+  expect(screen.queryByRole("button", { name: "Show more comments" })).toBeNull();
+
+  fireEvent.change(screen.getByLabelText("Add a comment"), { target: { value: "Four." } });
+  fireEvent.click(screen.getByRole("button", { name: "Post comment" }));
+  expect(await screen.findByText("Four.", { selector: "p" })).toBeDefined();
+  expect(screen.getByText("Three.")).toBeDefined();
 });

@@ -12,9 +12,15 @@ export function starsLabel(stars: number): string {
   return `${stars} ${stars === 1 ? "star" : "stars"} out of 5`;
 }
 
-// listReviews gets the first page of a preset's reviews again after a change. The reviews section calls it.
-export async function listReviews(id: string) {
-  return call<ReviewPage>(`/api/v1/presets/${checkID(id)}/reviews`);
+// pageQuery gives the query of a list call: the cursor of the next page, when there is one.
+function pageQuery(cursor?: string): string {
+  return cursor ? `?${new URLSearchParams({ cursor })}` : "";
+}
+
+// listReviews gets one page of a preset's reviews: the first page again after a change, or the next page for
+// "Show more reviews". The reviews section calls it.
+export async function listReviews(id: string, cursor?: string) {
+  return call<ReviewPage>(`/api/v1/presets/${checkID(id)}/reviews${pageQuery(cursor)}`);
 }
 
 // getMyReview gives the signed-in member's review of a preset, or null when there is none. The form starts from it.
@@ -37,8 +43,8 @@ export async function deleteMyReview(id: string) {
 }
 
 // listComments, addComment, editComment and deleteComment are the comment calls of the comments section.
-export async function listComments(id: string) {
-  return call<CommentPage>(`/api/v1/presets/${checkID(id)}/comments`);
+export async function listComments(id: string, cursor?: string) {
+  return call<CommentPage>(`/api/v1/presets/${checkID(id)}/comments${pageQuery(cursor)}`);
 }
 
 export async function addComment(id: string, body: string, parent?: string) {

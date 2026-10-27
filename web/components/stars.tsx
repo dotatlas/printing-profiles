@@ -37,7 +37,13 @@ function reviewsText(count: number): string {
 // RatingSummary shows a preset's average and review count under its title, as a link to the reviews. The preset
 // page uses it.
 export function RatingSummary({ rating }: { rating?: Rating }) {
-  if (!rating) return <p className="text-sm text-muted">No reviews yet</p>;
+  if (!rating) {
+    return (
+      <a href="#reviews" className="text-sm text-muted no-underline hover:underline">
+        No reviews yet
+      </a>
+    );
+  }
   return (
     <a href="#reviews" className="inline-flex items-center gap-1.5 text-sm text-ink no-underline hover:underline">
       <StarMark filled className="size-4 text-accent" />

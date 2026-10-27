@@ -57,8 +57,8 @@ export default async function PresetPage({ params }: PageProps<"/presets/[slug]"
       }
       community={
         <>
-          <Reviews presetId={preset.id} authorHandle={preset.author.handle} initial={reviews?.items ?? []} />
-          <Comments presetId={preset.id} initial={comments?.items ?? []} />
+          <Reviews presetId={preset.id} authorHandle={preset.author.handle} initial={reviews?.items ?? []} next={reviews?.next_cursor} />
+          <Comments presetId={preset.id} authorHandle={preset.author.handle} initial={comments?.items ?? []} next={comments?.next_cursor} />
         </>
       }
       // The notice reads the address, so it waits inside Suspense; the page HTML stays the same for everyone.

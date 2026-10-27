@@ -6,10 +6,11 @@ import { type FormEvent, useId, useState } from "react";
 import { ApiError, waitText, welcomePath } from "../lib/account";
 import type { Comment } from "../lib/api-types";
 import { addComment, deleteComment, editComment, listComments } from "../lib/community";
-import { formatDate } from "../lib/format";
+import { formatDate, tidyText } from "../lib/format";
 import { profilePath } from "../lib/presets";
 import { Notice } from "./account-ui";
 import { useSession } from "./session";
+import { ShowMore } from "./show-more";
 
 const maxComment = 2000;
 
@@ -20,16 +21,18 @@ function problemOf(err: unknown): string {
 }
 
 // CommentForm is one text box with its button: a new comment, a reply, or an edit. onSend gets the trimmed text
-// and throws when the write fails; onCancel, when given, shows a Cancel button.
+// and throws when the write fails; onCancel, when given, shows a Cancel button. busyLabel shows while it sends.
 function CommentForm({
   label,
   button,
+  busyLabel = "Posting…",
   start = "",
   onSend,
   onCancel,
 }: {
   label: string;
   button: string;
+  busyLabel?: string;
   start?: string;
   onSend: (body: string) => Promise<void>;
   onCancel?: () => void;
@@ -75,7 +78,7 @@ function CommentForm({
       {problem && <p className="text-sm text-danger">{problem}</p>}
       <div className="flex flex-wrap gap-3">
         <button type="submit" className="btn btn-primary" disabled={busy}>
-          {button}
+          {busy ? busyLabel : button}
         </button>
         {onCancel && (
           <button type="button" className="btn btn-secondary" onClick={onCancel}>
@@ -88,16 +91,18 @@ function CommentForm({
 }
 
 // CommentItem is one comment with its own actions: Reply under a top-level comment, Edit and Delete for its author.
-// Replies sit under it, indented.
+// Replies sit under it, indented. A comment by the preset's author (authorHandle) has an "Author" tag.
 function CommentItem({
   comment,
   presetId,
+  authorHandle,
   meHandle,
   top,
   onChange,
 }: {
   comment: Comment;
   presetId: string;
+  authorHandle: string;
   meHandle: string | null;
   top: boolean;
   onChange: (note?: string) => Promise<void>;
@@ -130,6 +135,7 @@ function CommentItem({
             <Link href={profilePath(comment.author.handle)} className="font-medium text-ink no-underline wrap-anywhere hover:underline">
               {name}
             </Link>
+            {comment.author.handle === authorHandle && <span className="status-tag">Author</span>}
             <span className="text-muted">
               {formatDate(comment.created_at)}
               {comment.edited && " · edited"}
@@ -139,6 +145,7 @@ function CommentItem({
             <CommentForm
               label="Edit your comment"
               button="Save"
+              busyLabel="Saving…"
               start={comment.body}
               onSend={async (body) => {
                 await editComment(comment.id, body);
@@ -148,7 +155,7 @@ function CommentItem({
               onCancel={() => setMode("read")}
             />
           ) : (
-            <p className="max-w-prose whitespace-pre-line wrap-anywhere">{comment.body}</p>
+            <p className="max-w-prose whitespace-pre-line wrap-anywhere">{tidyText(comment.body)}</p>
           )}
         </>
       )}
@@ -192,7 +199,14 @@ function CommentItem({
         <ul className="mt-2 flex flex-col gap-5 border-l border-line pl-4">
           {comment.replies.map((r) => (
             <li key={r.id}>
-              <CommentItem comment={r} presetId={presetId} meHandle={meHandle} top={false} onChange={onChange} />
+              <CommentItem
+                comment={r}
+                presetId={presetId}
+                authorHandle={authorHandle}
+                meHandle={meHandle}
+                top={false}
+                onChange={onChange}
+              />
             </li>
           ))}
         </ul>
@@ -217,21 +231,54 @@ function CommentItem({
 }
 
 // Comments is the comments section of the preset page: the thread oldest first, each top-level comment with its
-// replies, and the form for a new comment. The server gives the first page; the section reads it again after changes.
-export function Comments({ presetId, initial }: { presetId: string; initial: Comment[] }) {
+// replies, and the form for a new comment. The server gives the first page and the cursor of the next one; "Show
+// more comments" reads the next pages, and the section reads the thread again after changes.
+export function Comments({
+  presetId,
+  authorHandle,
+  initial,
+  next,
+}: {
+  presetId: string;
+  authorHandle: string;
+  initial: Comment[];
+  next?: string;
+}) {
   const { state } = useSession();
   const pathname = usePathname();
   const [items, setItems] = useState(initial);
+  const [cursor, setCursor] = useState(next);
   const [note, setNote] = useState("");
+  const [moreFailed, setMoreFailed] = useState(false);
   const me = state.status === "signed-in" && !state.me.needs_onboarding ? state.me : null;
 
-  // reload reads the thread again and puts the note, if any, on the status line.
-  async function reload(next = "") {
-    setNote(next);
+  // reload reads the thread again, as many pages as the reader had open plus extra, and puts the note, if any, on
+  // the status line. A new comment comes last, so a post asks for one extra comment.
+  async function reload(note = "", extra = 0) {
+    setNote(note);
     try {
-      setItems((await listComments(presetId)).items);
+      let page = await listComments(presetId);
+      const all = page.items;
+      while (page.next_cursor && all.length < items.length + extra) {
+        page = await listComments(presetId, page.next_cursor);
+        all.push(...page.items);
+      }
+      setItems(all);
+      setCursor(page.next_cursor);
     } catch {
       // The thread stays as it was; the next page load shows the change.
+    }
+  }
+
+  // showMore adds the next page of the thread under the comments on screen.
+  async function showMore() {
+    setMoreFailed(false);
+    try {
+      const page = await listComments(presetId, cursor);
+      setItems((now) => [...now, ...page.items]);
+      setCursor(page.next_cursor);
+    } catch {
+      setMoreFailed(true);
     }
   }
 
@@ -250,11 +297,19 @@ export function Comments({ presetId, initial }: { presetId: string; initial: Com
         <ul className="mt-4 flex flex-col gap-6">
           {items.map((t) => (
             <li key={t.id}>
-              <CommentItem comment={t} presetId={presetId} meHandle={me?.handle ?? null} top onChange={reload} />
+              <CommentItem
+                comment={t}
+                presetId={presetId}
+                authorHandle={authorHandle}
+                meHandle={me?.handle ?? null}
+                top
+                onChange={reload}
+              />
             </li>
           ))}
         </ul>
       )}
+      {cursor && <ShowMore label="Show more comments" onMore={showMore} failed={moreFailed} />}
       <div className="mt-6">
         {state.status === "signed-out" && (
           <Link href={`/signin?return=${encodeURIComponent(`${pathname}#comments`)}`}>Sign in to comment</Link>
@@ -268,7 +323,7 @@ export function Comments({ presetId, initial }: { presetId: string; initial: Com
             button="Post comment"
             onSend={async (body) => {
               await addComment(presetId, body);
-              await reload("Your comment is posted.");
+              await reload("Your comment is posted.", 1);
             }}
           />
         )}
