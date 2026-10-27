@@ -52,3 +52,9 @@ export function timeAgo(iso: string, now = Date.now()): string {
   }
   return "just now";
 }
+
+// tidyText gives member text ready to show with its line breaks: at most one blank line in a row, none at the ends.
+// The reviews, the comments and the preset description use it, so a run of empty lines cannot push the page down.
+export function tidyText(text: string): string {
+  return text.replace(/\r\n/g, "\n").replace(/\n\s*\n(\s*\n)+/g, "\n\n").trim();
+}

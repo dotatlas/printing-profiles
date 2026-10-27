@@ -60,7 +60,8 @@ export function BookmarkButton({ presetId }: { presetId: string }) {
       </Link>
     );
   }
-  if (saved === null) return null;
+  // The button's space stays while the state loads, so the title row does not jump.
+  if (saved === null) return <div className="h-10 w-32" aria-hidden="true" />;
 
   async function onToggle() {
     if (busy) return;

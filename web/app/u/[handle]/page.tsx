@@ -49,7 +49,7 @@ export default async function ProfilePage({ params, searchParams }: PageProps<"/
       <p className="mt-2 text-muted wrap-anywhere">
         {profile.display_name && <>@{profile.handle} · </>}
         <span className="whitespace-nowrap">Joined {formatDate(profile.joined_at)}</span> · {countLabel(profile.preset_count, "preset")} ·{" "}
-        {countLabel(profile.review_count, "review")}
+        {countLabel(profile.review_count, "review")} written
       </p>
       <section aria-labelledby="presets" className="mt-8">
         <h2 id="presets" className="mb-3 text-sm font-medium">

@@ -75,6 +75,10 @@ test("with a file, the preset page shows its key settings and a download that th
   expect(screen.getByRole("link", { name: "Download filament settings (.ini)" })).toHaveProperty("href", file.download_url);
   expect(screen.getByText(/PrusaSlicer 2\.9\.6/)).toBeDefined();
   expect(screen.getByText("12")).toBeDefined();
+  // Download comes before the reviews and comments in the page, so the keyboard reaches it first on a phone too.
+  const download = screen.getByRole("link", { name: "Download filament settings (.ini)" });
+  const about = screen.getByRole("heading", { name: "About this preset" });
+  expect(download.compareDocumentPosition(about) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   unmount();
 
   // A draft is not public, so its author downloads the file itself and nothing is counted.

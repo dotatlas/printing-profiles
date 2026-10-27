@@ -28,7 +28,8 @@ export default function RootLayout({ children }: { children: ReactNode }) {
       <body className="flex min-h-dvh flex-col bg-page text-ink">
         <SessionProvider>
           <header className="border-b border-line">
-            <div className="mx-auto flex max-w-5xl items-center justify-between gap-4 px-4 py-3">
+            {/* The row wraps when a reader sets very large text, so the account control never leaves the screen. */}
+            <div className="mx-auto flex max-w-5xl flex-wrap items-center justify-between gap-x-4 gap-y-2 px-4 py-3">
               <Link href="/" className="flex shrink-0 items-center gap-2 font-semibold text-ink no-underline">
                 {/* The link text names the site, so the logo has an empty alt text. On a phone the name is for screen
                     readers only, so the presets link and the account control fit beside the logo. */}
