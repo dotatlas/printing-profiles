@@ -139,7 +139,7 @@ function Field({
       </label>
       {children(note ? `${id}-note` : undefined)}
       {note && (
-        <p id={`${id}-note`} className={error ? "text-sm text-danger" : "text-sm text-muted"}>
+        <p id={`${id}-note`} className={error ? "text-sm text-pretty text-danger" : "text-sm text-pretty text-muted"}>
           {note}
         </p>
       )}

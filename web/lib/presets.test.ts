@@ -73,6 +73,18 @@ test("browsePath writes the filters in a fixed order and leaves out the empty on
   expect(browsePath({ printer: "a b" }, { cursor: "x=" })).toBe("/presets?printer=a+b&cursor=x%3D");
 });
 
+test('the browse query keeps "verified only" as verified=true, and drops any other value', () => {
+  expect(cleanBrowseQuery({ printer: "bambu-lab-p1s", verified: "true" })).toEqual({
+    query: { printer: "bambu-lab-p1s", verified: "true" },
+    cursor: undefined,
+    clean: true,
+  });
+  expect(cleanBrowseQuery({ verified: "yes" })).toEqual({ query: {}, cursor: undefined, clean: false });
+  expect(browsePath({ verified: "true", printer: "bambu-lab-p1s" }, { cursor: "c1" })).toBe(
+    "/presets?printer=bambu-lab-p1s&verified=true&cursor=c1",
+  );
+});
+
 test("nozzleLabel writes a nozzle the way a slicer shows it, with the unit kept on the same line", () => {
   expect([0.2, 0.25, 0.4, 1, 1.2].map(nozzleLabel)).toEqual(["0.2\u00a0mm", "0.25\u00a0mm", "0.4\u00a0mm", "1.0\u00a0mm", "1.2\u00a0mm"]);
 });
@@ -94,6 +106,11 @@ test("listPresets sends only the filters and the cursor, and turns a 400 into a 
   expect(requests.at(-1)).toBe("/api/v1/presets?printer=bambu-lab-p1s&cursor=c1&limit=20");
 
   expect(await listPresets({ nozzle: "0.7" })).toEqual({ ok: false, problem: "nozzle must be one of 0.2 … 1.2" });
+});
+
+test("listPresets asks for photo-verified presets only when the query says so", async () => {
+  await listPresets({ verified: "true" });
+  expect(requests.at(-1)).toBe("/api/v1/presets?verified=true&limit=20");
 });
 
 test("isHandle takes only handles that the API can give, so the profile page asks only for those", () => {

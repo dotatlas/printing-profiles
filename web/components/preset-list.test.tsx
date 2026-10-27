@@ -99,3 +99,20 @@ test("with no match, each filter in use has a link that removes only that filter
     expect.stringMatching(/\/presets\?printer=bambu-lab-p1s$/),
   );
 });
+
+test("a photo-verified row says so, and the filters have a Verified only choice", () => {
+  render(<PresetList items={[{ ...preset, verified: true }]} />);
+  expect(screen.getByRole("listitem").textContent).toContain("Photo verified");
+  render(<BrowseFilters catalog={catalog} query={{ verified: "true" }} />);
+  const box = screen.getByRole("checkbox", { name: "Photo verified only" }) as HTMLInputElement;
+  expect(box.checked).toBe(true);
+  expect(box.name).toBe("verified");
+  expect(box.value).toBe("true");
+  expect(screen.getByRole("link", { name: "Clear filters" })).toBeDefined();
+});
+
+test("with no photo-verified match, the empty state offers to show every preset again", () => {
+  render(<NoMatches catalog={catalog} query={{ printer: "bambu-lab-p1s", verified: "true" }} />);
+  expect(screen.getByRole("link", { name: "Remove Photo verified only" }).getAttribute("href")).toBe("/presets?printer=bambu-lab-p1s");
+  expect(screen.getByRole("link", { name: "Remove Bambu Lab P1S" }).getAttribute("href")).toBe("/presets?verified=true");
+});

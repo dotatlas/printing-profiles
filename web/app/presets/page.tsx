@@ -32,7 +32,7 @@ export default async function BrowsePage({ searchParams }: PageProps<"/presets">
   if (!clean) redirect(browsePath(query, cursor ? { cursor } : undefined));
 
   const [lists, result] = await Promise.all([catalog(), listPresets({ ...query, cursor })]);
-  const filtered = browseFilters.some((key) => query[key]);
+  const filtered = browseFilters.some((key) => query[key]) || Boolean(query.verified);
   const setup = setupLabel(lists, query);
 
   return (
@@ -52,6 +52,7 @@ export default async function BrowsePage({ searchParams }: PageProps<"/presets">
       <section aria-labelledby="results" className="mt-8">
         <h2 id="results" className="mb-3 text-sm font-medium wrap-anywhere">
           {setup ? `Newest presets for ${setup}` : "Newest presets"}
+          {query.verified && <span className="font-normal text-muted"> · photo verified only</span>}
           {cursor && <span className="font-normal text-muted"> · later page</span>}
         </h2>
         {!result.ok ? (

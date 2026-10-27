@@ -5,7 +5,8 @@ import type { CommentPage, Preset, PresetPage, Problem, Profile, ReviewPage } fr
 export const browseFilters = ["printer", "material", "nozzle", "slicer"] as const;
 
 export type BrowseFilter = (typeof browseFilters)[number];
-export type BrowseQuery = Partial<Record<BrowseFilter, string>>;
+// verified is the "Verified only" choice: a yes or no, so it is not one of the select filters.
+export type BrowseQuery = Partial<Record<BrowseFilter, string>> & { verified?: "true" };
 
 // presetPath gives the site's path of a preset. Links use it, and parsePresetParam reads it back.
 export function presetPath(preset: { slug: string; id: string }): string {
@@ -34,6 +35,7 @@ export function cleanBrowseQuery(params: Record<string, string | string[] | unde
     if (!value || Array.isArray(raw)) clean = false;
     if (!value) continue;
     if (key === "cursor") cursor = value;
+    else if (key === "verified" && value === "true") query.verified = "true";
     else if ((browseFilters as readonly string[]).includes(key)) query[key as BrowseFilter] = value;
     else clean = false;
   }
@@ -47,6 +49,7 @@ export function browsePath(query: BrowseQuery, page?: { cursor: string }): strin
     const value = query[key];
     if (value) search.set(key, value);
   }
+  if (query.verified) search.set("verified", "true");
   if (page) search.set("cursor", page.cursor);
   const text = search.toString();
   return text ? `/presets?${text}` : "/presets";
@@ -118,7 +121,7 @@ export type BrowseResult = { ok: true; page: PresetPage } | { ok: false; problem
 // A 400 (a filter that the API refuses) comes back as a message for the page; any other error fails.
 export async function listPresets(query: BrowseQuery & { cursor?: string; author?: string }): Promise<BrowseResult> {
   const search = new URLSearchParams();
-  for (const key of [...browseFilters, "cursor", "author"] as const) {
+  for (const key of [...browseFilters, "verified", "cursor", "author"] as const) {
     const value = query[key];
     if (value) search.set(key, value);
   }

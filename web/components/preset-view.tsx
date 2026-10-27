@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import type { Preset } from "../lib/api-types";
 import { formatDate, tidyText } from "../lib/format";
 import { authorName, profilePath } from "../lib/presets";
+import { PhotoGallery, VerifiedTag } from "./photo-gallery";
 import { fileExt, fileKind, KeySettings, PresetDetails, PresetFacts, slicerName } from "./preset-facts";
 import { RatingSummary } from "./stars";
 
@@ -35,9 +36,10 @@ export function PresetView({
             ·{" "}
             {formatDate(preset.published_at ?? preset.created_at)}
           </p>
-          {preset.status === "published" && (
-            <div className="mt-2">
-              <RatingSummary rating={preset.rating} />
+          {(preset.status === "published" || preset.verified) && (
+            <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-2">
+              {preset.status === "published" && <RatingSummary rating={preset.rating} />}
+              {preset.verified && <VerifiedTag linked />}
             </div>
           )}
         </div>
@@ -62,6 +64,8 @@ export function PresetView({
           <PresetDetails preset={preset} />
         </aside>
         <div className="flex min-w-0 flex-col gap-10">
+          {/* The photos lead: they are the evidence that the preset printed well. */}
+          {preset.photos && preset.photos.length > 0 && <PhotoGallery photos={preset.photos} />}
           {preset.file && (
             <section aria-labelledby="key-settings">
               <h2 id="key-settings" className="font-semibold">

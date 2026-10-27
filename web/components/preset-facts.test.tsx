@@ -92,3 +92,42 @@ test("without a file, the preset page says so and offers no download", () => {
   expect(screen.queryByRole("link", { name: /^Download/ })).toBeNull();
   expect(screen.getByText("None attached yet")).toBeDefined();
 });
+
+test("a photo-verified preset shows its photos and a badge that links to what it means", () => {
+  const photos = [
+    { id: "bcdefghjkmnp", url: "https://files.test/photos/a.jpg", thumb_url: "https://files.test/photos/a-thumb.jpg", width: 2048, height: 1536, alt: "The cube from the front" },
+    { id: "cdefghjkmnpq", url: "https://files.test/photos/b.jpg", thumb_url: "https://files.test/photos/b-thumb.jpg", width: 1536, height: 2048, alt: "The seam on the back" },
+  ];
+  render(<PresetView preset={{ ...preset, verified: true, photos }} />);
+  expect(screen.getByRole("link", { name: "Photo verified" }).getAttribute("href")).toBe("/faq#photo-verified");
+  const first = screen.getByRole("img", { name: "The cube from the front" });
+  expect(first.getAttribute("src")).toBe("https://files.test/photos/a-thumb.jpg");
+  // The thumbnail is a link to the full image, and its size is set, so the page does not move while it loads.
+  expect(first.closest("a")?.getAttribute("href")).toBe("https://files.test/photos/a.jpg");
+  expect(first.getAttribute("width")).toBe("480");
+  expect(first.getAttribute("height")).toBe("360");
+  expect(screen.getByRole("img", { name: "The seam on the back" }).getAttribute("loading")).toBe("lazy");
+});
+
+test("a preset without photos has no badge and no photos section", () => {
+  render(<PresetView preset={preset} />);
+  expect(screen.queryByText("Photo verified")).toBeNull();
+  expect(screen.queryByRole("heading", { name: "Photos" })).toBeNull();
+});
+
+test("the gallery shows six photos with their captions, keeps the rest behind Show more, and links to what the badge means", () => {
+  const photos = Array.from({ length: 8 }, (_, i) => ({
+    id: `bcdefghjkm${"abcdefgh"[i]}${"abcdefgh"[i]}`,
+    url: `https://files.test/photos/${i}.jpg`,
+    thumb_url: `https://files.test/photos/${i}-thumb.jpg`,
+    width: 800,
+    height: 600,
+    alt: `Print ${i + 1}`,
+  }));
+  render(<PresetView preset={{ ...preset, verified: true, photos }} />);
+  expect(screen.getByText("Print 1", { selector: "p" })).toBeDefined();
+  const more = screen.getByText("Show 2 more photos");
+  expect(more.closest("details")?.open).toBe(false);
+  expect(more.closest("details")?.querySelectorAll("img")).toHaveLength(2);
+  expect(screen.getByRole("link", { name: "What Photo verified means" }).getAttribute("href")).toBe("/faq#photo-verified");
+});

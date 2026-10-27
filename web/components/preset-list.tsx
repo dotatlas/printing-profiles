@@ -12,6 +12,7 @@ import {
   presetPath,
   printerLabel,
 } from "../lib/presets";
+import { VerifiedTag } from "./photo-gallery";
 import { RatingInline } from "./stars";
 
 export type Catalog = { printers: Printer[]; materials: Material[]; slicers: Slicer[] };
@@ -112,7 +113,7 @@ function FilterSelect({
 
 // BrowseFilters is the filter form of the browse page. It is a plain GET form, so it works without JavaScript.
 export function BrowseFilters({ catalog, query }: { catalog: Catalog; query: BrowseQuery }) {
-  const inUse = browseFilters.some((key) => query[key]);
+  const inUse = browseFilters.some((key) => query[key]) || Boolean(query.verified);
   return (
     <form action="/presets" method="get" role="search" aria-label="Filter presets">
       <div className={`grid grid-cols-2 gap-3 md:grid-cols-4 ${columns}`}>
@@ -141,7 +142,11 @@ export function BrowseFilters({ catalog, query }: { catalog: Catalog; query: Bro
           ))}
         </FilterSelect>
       </div>
-      <div className="mt-3 flex flex-wrap justify-end gap-3">
+      <div className="mt-3 flex flex-wrap items-center justify-end gap-3">
+        <label className="check-choice mr-auto">
+          <input type="checkbox" name="verified" value="true" defaultChecked={query.verified === "true"} />
+          Photo verified only
+        </label>
         {inUse && (
           <Link href="/presets" className="btn btn-secondary">
             Clear filters
@@ -181,6 +186,11 @@ export function PresetList({ items, query = {}, showAuthor = true }: { items: Pr
                 </>
               )}
             </p>
+            {preset.verified && (
+              <p className="mt-1">
+                <VerifiedTag />
+              </p>
+            )}
           </div>
           <dl className="mt-1.5 grid grid-cols-2 gap-x-3 gap-y-0.5 text-[13px] md:grid-cols-4 lg:contents lg:text-sm">
             <Fact label="Printer" fixed={query.printer === preset.printer.slug}>
@@ -233,6 +243,13 @@ export function NoMatches({ catalog, query }: { catalog: Catalog; query: BrowseQ
             </Link>
           </li>
         ))}
+        {query.verified && (
+          <li>
+            <Link href={browsePath({ ...query, verified: undefined })} className="btn btn-secondary">
+              Remove Photo verified only
+            </Link>
+          </li>
+        )}
       </ul>
     </div>
   );

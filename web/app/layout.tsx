@@ -56,7 +56,8 @@ export default function RootLayout({ children }: { children: ReactNode }) {
             <div className="mx-auto flex max-w-5xl flex-wrap items-center justify-between gap-4 px-4 py-6">
               <p className="text-sm text-muted">
                 Open source under the AGPL-3.0 license ·{" "}
-                <a href="https://github.com/dotatlas/printing-profiles">Source code</a>
+                <a href="https://github.com/dotatlas/printing-profiles">Source code</a> ·{" "}
+                <Link href="/faq">Questions and answers</Link>
               </p>
               <ThemeSwitch />
             </div>

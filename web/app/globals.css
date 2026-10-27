@@ -76,7 +76,8 @@
     transform: scale(0.97);
   }
   /* A disabled control stays readable: a quiet fill with the muted ink, never a faded copy of the live one. */
-  .btn:disabled {
+  .btn:disabled,
+  .btn[aria-disabled="true"] {
     cursor: not-allowed;
     border-color: transparent;
     background-color: var(--color-line);
@@ -241,6 +242,53 @@
     font-size: 0.75rem;
     font-weight: 500;
     color: var(--color-accent-ink);
+  }
+  /* The "Photo verified" tag: an outline with its mark, so it never reads as one more fact chip. As a link it shows
+     the underline under the pointer. */
+  .verified-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3125rem;
+    border-radius: 9999px;
+    border: 1px solid var(--color-accent);
+    padding: 0.0625rem 0.5rem;
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: var(--color-accent-ink);
+    text-decoration: none;
+  }
+  a.verified-tag:hover {
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+  /* A native checkbox in the accent color, with a target as tall as the other controls. */
+  .check-choice {
+    display: inline-flex;
+    min-height: 2.5rem;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.875rem;
+    cursor: pointer;
+  }
+  .check-choice input {
+    width: 1.125rem;
+    height: 1.125rem;
+    accent-color: var(--color-accent);
+  }
+  /* A photo thumbnail: one crop size for every photo, so the grid stays even. The full photo is one press away. */
+  .photo-thumb {
+    display: block;
+    overflow: hidden;
+    border-radius: 0.75rem;
+    border: 1px solid var(--color-line);
+    background-color: var(--color-raised);
+  }
+  .photo-thumb img {
+    display: block;
+    width: 100%;
+    height: auto;
+    aspect-ratio: 4 / 3;
+    object-fit: cover;
   }
   .panel {
     border-radius: 1rem;
