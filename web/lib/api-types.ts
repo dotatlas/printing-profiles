@@ -403,7 +403,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Get a one-time URL to send a preset file to (signed in, with a handle)
+         * Get a one-time URL to send a preset file or a photo to (signed in, with a handle)
          * @description The answer is a presigned PUT for exactly `size` bytes with the given headers, valid for 10 minutes. The browser sends the file there, not to the API, then calls complete. The file type that the browser reports is never used: the check reads the content.
          */
         post: operations["createUpload"];
@@ -423,8 +423,8 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Check an uploaded preset file and keep a clean copy (signed in, the uploader only)
-         * @description Reads the file from storage, finds the slicer and the kind from its content, removes printer connection secrets (listed in `removed`) and stores the clean copy. A second call gives the same answer. Another member's upload is a 404.
+         * Check an uploaded preset file or photo and keep a clean copy (signed in, the uploader only)
+         * @description A preset file: reads it from storage, finds the slicer and the kind from its content, removes printer connection secrets (listed in `removed`) and stores the clean copy. A photo: checks the type by its bytes (JPEG or PNG) and its size before it decodes it, turns it upright from the EXIF orientation, and stores a re-encoded JPEG (long side at most 2048 px) and a thumbnail (480 px) with no metadata. A second call gives the same answer. Another member's upload is a 404.
          */
         post: operations["completeUpload"];
         delete?: never;
@@ -845,8 +845,8 @@ export interface components {
         };
         UploadCreate: {
             /** @enum {string} */
-            kind: "preset_file";
-            /** @description The exact size of the file, in bytes. Storage refuses any other size. */
+            kind: "preset_file" | "photo";
+            /** @description The exact size of the file, in bytes: at most 1 MB for a preset file, 10 MB for a photo. Storage refuses any other size. */
             size: number;
         };
         UploadTicket: {
@@ -897,6 +897,15 @@ export interface components {
              * @description The clean copy on the files origin.
              */
             file_url?: string;
+            /** @description A photo's width after the check, in pixels. */
+            width?: number;
+            /** @description A photo's height after the check, in pixels. */
+            height?: number;
+            /**
+             * Format: uri
+             * @description A photo's thumbnail on the files origin.
+             */
+            thumb_url?: string;
         };
         PresetPage: {
             items: components["schemas"]["Preset"][];
@@ -1973,7 +1982,7 @@ export interface operations {
                     "application/problem+json": components["schemas"]["Problem"];
                 };
             };
-            /** @description The file is not a supported preset, or not the signed size; `detail` says why. */
+            /** @description The file is not a supported preset or photo, or not the signed size; `detail` says why. */
             422: {
                 headers: {
                     [name: string]: unknown;
@@ -2288,7 +2297,7 @@ export const presetUpdateStatusValues: ReadonlyArray<FlattenedDeepRequired<compo
 export const presetStatusValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["Preset"]["status"]> = ["draft", "published"];
 export const presetFileSlicerValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["PresetFile"]["slicer"]> = ["prusaslicer", "superslicer", "orcaslicer"];
 export const presetFileKindValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["PresetFile"]["kind"]> = ["print", "filament", "printer", "config"];
-export const uploadCreateKindValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["UploadCreate"]["kind"]> = ["preset_file"];
+export const uploadCreateKindValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["UploadCreate"]["kind"]> = ["preset_file", "photo"];
 export const uploadTicketMethodValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["UploadTicket"]["method"]> = ["PUT"];
 export const uploadStatusValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["Upload"]["status"]> = ["ready"];
 export const uploadSlicerValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["Upload"]["slicer"]> = ["prusaslicer", "superslicer", "orcaslicer"];

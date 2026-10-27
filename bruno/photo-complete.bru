@@ -1,0 +1,25 @@
+meta {
+  name: check the photo
+  type: http
+  seq: 32
+}
+
+post {
+  url: {{baseUrl}}/api/v1/uploads/{{photoUploadId}}/complete
+  body: none
+  auth: none
+}
+
+headers {
+  Cookie: __Host-session={{session}}
+  Origin: {{siteOrigin}}
+}
+
+assert {
+  res.status: eq 200
+  res.body.status: eq ready
+  res.body.width: eq 16
+  res.body.height: eq 8
+  res.body.file_url: contains /photos/
+  res.body.thumb_url: contains -thumb.jpg
+}

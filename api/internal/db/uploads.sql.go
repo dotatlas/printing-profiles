@@ -34,7 +34,7 @@ func (q *Queries) CreateUpload(ctx context.Context, arg CreateUploadParams) erro
 }
 
 const getUpload = `-- name: GetUpload :one
-SELECT id, public_id, owner_id, kind, size, status, reason, sha256, file_key, slicer, file_kind, slicer_version, settings, removed, created_at, completed_at FROM uploads WHERE public_id = $1 AND owner_id = $2
+SELECT id, public_id, owner_id, kind, size, status, reason, sha256, file_key, slicer, file_kind, slicer_version, settings, removed, created_at, completed_at, thumb_key, width, height FROM uploads WHERE public_id = $1 AND owner_id = $2
 `
 
 type GetUploadParams struct {
@@ -62,6 +62,9 @@ func (q *Queries) GetUpload(ctx context.Context, arg GetUploadParams) (Upload, e
 		&i.Removed,
 		&i.CreatedAt,
 		&i.CompletedAt,
+		&i.ThumbKey,
+		&i.Width,
+		&i.Height,
 	)
 	return i, err
 }

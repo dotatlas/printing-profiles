@@ -26,12 +26,16 @@ type Server struct {
 	Files   FileStore
 
 	providers map[string]*oauthProvider // the OAuth providers; Handler makes them from Cfg, and tests put fakes here
+	photoSlot chan struct{}             // one photo decodes at a time; Handler makes it
 }
 
 // Handler returns all routes inside the middleware. Serve runs it, and the tests call it directly.
 func (s *Server) Handler() http.Handler {
 	if s.providers == nil {
 		s.providers = providersFrom(s.Cfg)
+	}
+	if s.photoSlot == nil {
+		s.photoSlot = make(chan struct{}, 1)
 	}
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /api/v1/health", s.handleHealth)

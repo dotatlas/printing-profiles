@@ -1,0 +1,34 @@
+meta {
+  name: ask for a photo upload
+  type: http
+  seq: 30
+}
+
+post {
+  url: {{baseUrl}}/api/v1/uploads
+  body: json
+  auth: none
+}
+
+headers {
+  Cookie: __Host-session={{session}}
+  Origin: {{siteOrigin}}
+}
+
+body:json {
+  {"kind": "photo", "size": 633}
+}
+
+script:post-response {
+  bru.setVar("photoUploadId", res.body.id);
+  bru.setVar("photoUploadUrl", res.body.url);
+}
+
+assert {
+  res.status: eq 201
+  res.body.method: eq PUT
+}
+
+docs {
+  The size is the byte size of fixtures/photo.jpg, which photo-put sends. Change both together.
+}

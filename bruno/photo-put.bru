@@ -1,0 +1,24 @@
+meta {
+  name: send the photo to the upload URL (dev storage)
+  type: http
+  seq: 31
+}
+
+put {
+  url: {{photoUploadUrl}}
+  body: file
+  auth: none
+}
+
+headers {
+  Content-Type: application/octet-stream
+  Origin: {{siteOrigin}}
+}
+
+body:file {
+  file: @file(fixtures/photo.jpg) @contentType(application/octet-stream)
+}
+
+assert {
+  res.status: eq 200
+}

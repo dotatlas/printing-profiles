@@ -194,6 +194,9 @@ type Upload struct {
 	Removed       []string
 	CreatedAt     time.Time
 	CompletedAt   pgtype.Timestamptz
+	ThumbKey      string
+	Width         int32
+	Height        int32
 }
 
 type User struct {

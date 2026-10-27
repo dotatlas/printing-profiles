@@ -15,6 +15,7 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/dotatlas/printing-profiles/api/internal/db"
+	"github.com/dotatlas/printing-profiles/api/internal/images"
 	"github.com/dotatlas/printing-profiles/api/internal/presetfile"
 	"github.com/dotatlas/printing-profiles/api/internal/storage"
 )
@@ -44,10 +45,14 @@ type uploadTicketJSON struct {
 	ExpiresAt time.Time         `json:"expires_at"`
 }
 
-// uploadJSON is an upload after "complete": what the check found, or why it refused the file.
+// uploadJSON is an upload after "complete": what the check found, or why it refused the file. A preset file has
+// the slicer fields; a photo has its size and the thumbnail.
 type uploadJSON struct {
 	ID            string               `json:"id"`
 	Status        string               `json:"status"`
+	Width         int32                `json:"width,omitempty"`
+	Height        int32                `json:"height,omitempty"`
+	ThumbURL      string               `json:"thumb_url,omitempty"`
 	Slicer        string               `json:"slicer,omitempty"`
 	Kind          string               `json:"kind,omitempty"`
 	SlicerVersion string               `json:"slicer_version,omitempty"`
@@ -58,7 +63,13 @@ type uploadJSON struct {
 
 // toUploadJSON maps an upload row to its answer. The file URL is on the files origin, never the API's.
 func (s *Server) toUploadJSON(u db.Upload) uploadJSON {
-	out := uploadJSON{ID: u.PublicID, Status: u.Status, Slicer: u.Slicer, Kind: u.FileKind, SlicerVersion: u.SlicerVersion, Removed: u.Removed}
+	out := uploadJSON{
+		ID: u.PublicID, Status: u.Status, Slicer: u.Slicer, Kind: u.FileKind, SlicerVersion: u.SlicerVersion, Removed: u.Removed,
+		Width: u.Width, Height: u.Height,
+	}
+	if u.ThumbKey != "" {
+		out.ThumbURL = s.photoURL(u.ThumbKey)
+	}
 	_ = json.Unmarshal(u.Settings, &out.Settings) // The API wrote the JSON itself, so it reads back.
 	if u.FileKey != "" {
 		out.FileURL = s.Cfg.R2.FilesOrigin + "/" + u.FileKey
@@ -89,12 +100,13 @@ func (s *Server) handleCreateUpload(w http.ResponseWriter, r *http.Request) {
 	if !readJSON(w, r, &in) {
 		return
 	}
+	limit := map[string]int64{"preset_file": maxPresetFile, "photo": images.MaxSize}[in.Kind]
 	switch {
-	case in.Kind != "preset_file":
-		writeProblem(w, http.StatusBadRequest, "kind must be preset_file")
+	case limit == 0:
+		writeProblem(w, http.StatusBadRequest, "kind must be preset_file or photo")
 		return
-	case in.Size < 1 || in.Size > maxPresetFile:
-		writeProblem(w, http.StatusBadRequest, "size must be from 1 to "+strconv.Itoa(maxPresetFile)+" bytes")
+	case in.Size < 1 || in.Size > limit:
+		writeProblem(w, http.StatusBadRequest, "size must be from 1 to "+strconv.FormatInt(limit, 10)+" bytes")
 		return
 	}
 	if !s.allow(w, r, "upload-create", strconv.FormatInt(u.UserID, 10), 30, time.Hour) {
@@ -157,6 +169,12 @@ func (s *Server) handleCompleteUpload(w http.ResponseWriter, r *http.Request) {
 		s.reject(w, r, up.ID, "the file is not the size that the upload was for")
 		return
 	}
+	if up.Kind == "photo" {
+		if s.completePhoto(w, r, up, data) {
+			s.sendUpload(w, r, id, u.UserID)
+		}
+		return
+	}
 	f, err := presetfile.Parse(data)
 	if err != nil {
 		s.reject(w, r, up.ID, err.Error())
@@ -191,8 +209,14 @@ func (s *Server) handleCompleteUpload(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, r, err)
 		return
 	}
-	// Read the row again: a parallel call may have finished first, and both callers get the stored answer.
-	if up, err = s.DB.GetUpload(ctx, db.GetUploadParams{PublicID: id, OwnerID: u.UserID}); err != nil {
+	s.sendUpload(w, r, id, u.UserID)
+}
+
+// sendUpload reads an upload again and sends it. A parallel "complete" may have finished first, and both callers get
+// the stored answer. handleCompleteUpload calls it after a check.
+func (s *Server) sendUpload(w http.ResponseWriter, r *http.Request, id string, owner int64) {
+	up, err := s.DB.GetUpload(r.Context(), db.GetUploadParams{PublicID: id, OwnerID: owner})
+	if err != nil {
 		s.fail(w, r, err)
 		return
 	}

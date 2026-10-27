@@ -82,7 +82,7 @@ func TestAStrangerCannotCreateOrCompleteAnUpload(t *testing.T) {
 func TestCreateUploadSignsTheSizeAndRefusesBadRequests(t *testing.T) {
 	s, _, _ := newUploadServer(t)
 	token := member(t, s, "sizes")
-	for _, body := range []string{`{"kind":"preset_file","size":0}`, `{"kind":"preset_file","size":1048577}`, `{"kind":"photo","size":10}`, `{"size":10}`} {
+	for _, body := range []string{`{"kind":"preset_file","size":0}`, `{"kind":"preset_file","size":1048577}`, `{"kind":"video","size":10}`, `{"size":10}`} {
 		if rec := postJSON(s, "/api/v1/uploads", body, token); rec.Code != http.StatusBadRequest {
 			t.Errorf("%s: status %d, want 400", body, rec.Code)
 		}
