@@ -67,6 +67,17 @@ export function materialLabel(material: Preset["material"]): string {
   return `${material.brand.name} ${material.product_name}`;
 }
 
+// isHandle says whether a value can be a member's handle: the API's rule, 3 to 30 characters. The profile page
+// checks the path with it before it asks the API.
+export function isHandle(value: string): boolean {
+  return value.length >= 3 && value.length <= 30 && /^[a-z0-9]+(-[a-z0-9]+)*$/.test(value);
+}
+
+// profilePath gives the path of a member's profile page. The bylines of presets, reviews and comments link to it.
+export function profilePath(handle: string): string {
+  return `/u/${handle}`;
+}
+
 // authorName names the author of a preset in a byline: "Mia Hartmann (@mia)", or "@mia" for a user without a
 // display name. The preset page uses it; the rows show the shorter display name alone.
 export function authorName(author: Preset["author"]): string {
@@ -103,11 +114,11 @@ export function getProfile(handle: string): Promise<Profile | null> {
 
 export type BrowseResult = { ok: true; page: PresetPage } | { ok: false; problem: string };
 
-// listPresets gets one page of published presets for the browse page. A 400 (a filter that the API refuses)
-// comes back as a message for the page; any other error fails.
-export async function listPresets(query: BrowseQuery & { cursor?: string }): Promise<BrowseResult> {
+// listPresets gets one page of published presets for the browse page, or one author's presets for a profile page.
+// A 400 (a filter that the API refuses) comes back as a message for the page; any other error fails.
+export async function listPresets(query: BrowseQuery & { cursor?: string; author?: string }): Promise<BrowseResult> {
   const search = new URLSearchParams();
-  for (const key of [...browseFilters, "cursor"] as const) {
+  for (const key of [...browseFilters, "cursor", "author"] as const) {
     const value = query[key];
     if (value) search.set(key, value);
   }

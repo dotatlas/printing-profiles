@@ -7,10 +7,12 @@ import {
   browsePath,
   cleanBrowseQuery,
   getPreset,
+  isHandle,
   listPresets,
   nozzleLabel,
   parsePresetParam,
   presetPath,
+  profilePath,
 } from "./presets";
 
 // The fake API knows one preset (abcdefgh), refuses the nozzle 0.7, and fails for the preset zzzzzzzz.
@@ -92,4 +94,19 @@ test("listPresets sends only the filters and the cursor, and turns a 400 into a 
   expect(requests.at(-1)).toBe("/api/v1/presets?printer=bambu-lab-p1s&cursor=c1&limit=20");
 
   expect(await listPresets({ nozzle: "0.7" })).toEqual({ ok: false, problem: "nozzle must be one of 0.2 … 1.2" });
+});
+
+test("isHandle takes only handles that the API can give, so the profile page asks only for those", () => {
+  expect(isHandle("mia-prints")).toBe(true);
+  expect(isHandle("ab")).toBe(false);
+  expect(isHandle("Mia")).toBe(false);
+  expect(isHandle("-mia")).toBe(false);
+  expect(isHandle("mia--x")).toBe(false);
+  expect(isHandle("a".repeat(31))).toBe(false);
+  expect(profilePath("mia-prints")).toBe("/u/mia-prints");
+});
+
+test("listPresets asks for one author's presets on a profile page", async () => {
+  await listPresets({ author: "mia", cursor: "c2" });
+  expect(requests.at(-1)).toBe("/api/v1/presets?cursor=c2&author=mia&limit=20");
 });

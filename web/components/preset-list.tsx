@@ -157,8 +157,8 @@ export function BrowseFilters({ catalog, query }: { catalog: Catalog; query: Bro
 
 // PresetList shows one page of presets as rows on the grid of the filters. The whole row is the link to the preset.
 // Below lg, the four facts sit under the title in two columns. A fact that a filter already fixes is muted, so the
-// facts that differ stand out.
-export function PresetList({ items, query = {} }: { items: Preset[]; query?: BrowseQuery }) {
+// facts that differ stand out. A profile page sets showAuthor to false, because the page names the author.
+export function PresetList({ items, query = {}, showAuthor = true }: { items: Preset[]; query?: BrowseQuery; showAuthor?: boolean }) {
   return (
     <ul className="divide-y divide-line border-y border-line">
       {items.map((preset) => (
@@ -172,7 +172,7 @@ export function PresetList({ items, query = {} }: { items: Preset[]; query?: Bro
               {preset.title}
             </Link>
             <p className="mt-0.5 text-[13px] text-muted wrap-anywhere">
-              by {preset.author.display_name || `@${preset.author.handle}`} ·{" "}
+              {showAuthor && <>by {preset.author.display_name || `@${preset.author.handle}`} · </>}
               {formatDate(preset.published_at ?? preset.created_at)}
               {preset.rating && (
                 <>

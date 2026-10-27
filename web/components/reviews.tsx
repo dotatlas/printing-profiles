@@ -7,6 +7,7 @@ import { ApiError, waitText, welcomePath } from "../lib/account";
 import type { Review } from "../lib/api-types";
 import { deleteMyReview, getMyReview, listReviews, saveReview } from "../lib/community";
 import { formatDate } from "../lib/format";
+import { profilePath } from "../lib/presets";
 import { Notice } from "./account-ui";
 import { useSession } from "./session";
 import { StarMark, Stars } from "./stars";
@@ -195,7 +196,9 @@ export function Reviews({ presetId, authorHandle, initial }: { presetId: string;
             <li key={`${r.author.handle}-${r.created_at}`} className="py-4">
               <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
                 <Stars value={r.stars} />
-                <span className="text-sm font-medium wrap-anywhere">{r.author.display_name || `@${r.author.handle}`}</span>
+                <Link href={profilePath(r.author.handle)} className="text-sm font-medium text-ink no-underline wrap-anywhere hover:underline">
+                  {r.author.display_name || `@${r.author.handle}`}
+                </Link>
                 <span className="text-sm text-muted">
                   {formatDate(r.created_at)}
                   {r.edited && " · edited"}

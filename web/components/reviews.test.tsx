@@ -65,6 +65,7 @@ test("the reviews list shows each review's stars in words and its text", () => {
   const item = screen.getByRole("listitem");
   expect(within(item).getByText("4 stars out of 5")).toBeDefined();
   expect(within(item).getByText(/Clean first layer\./)).toBeDefined();
+  expect(within(item).getByRole("link", { name: "@someone" }).getAttribute("href")).toBe("/u/someone");
 });
 
 test("a signed-out visitor gets a sign-in link, and the author gets no form", async () => {

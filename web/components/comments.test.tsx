@@ -62,6 +62,7 @@ test("a visitor reads the thread and gets a sign-in link", async () => {
   );
   expect(screen.getByText("Which plate?")).toBeDefined();
   expect(screen.getByText("Textured PEI.")).toBeDefined();
+  expect(screen.getByRole("link", { name: "@maker" }).getAttribute("href")).toBe("/u/maker");
   expect(await screen.findByRole("link", { name: "Sign in to comment" })).toBeDefined();
   expect(screen.queryByRole("button", { name: /^Reply/ })).toBeNull();
 });

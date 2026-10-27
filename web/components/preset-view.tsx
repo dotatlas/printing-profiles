@@ -1,7 +1,8 @@
+import Link from "next/link";
 import type { ReactNode } from "react";
 import type { Preset } from "../lib/api-types";
 import { formatDate } from "../lib/format";
-import { authorName } from "../lib/presets";
+import { authorName, profilePath } from "../lib/presets";
 import { fileExt, fileKind, KeySettings, PresetDetails, PresetFacts, slicerName } from "./preset-facts";
 import { RatingSummary } from "./stars";
 
@@ -27,7 +28,11 @@ export function PresetView({
         <div className="min-w-0 flex-1 basis-80">
           <h1 className="text-2xl font-semibold tracking-tight text-balance wrap-anywhere sm:text-3xl">{preset.title}</h1>
           <p className="mt-2 text-muted wrap-anywhere">
-            by <span className="text-ink">{authorName(preset.author)}</span> ·{" "}
+            by{" "}
+            <Link href={profilePath(preset.author.handle)} className="text-ink no-underline hover:underline">
+              {authorName(preset.author)}
+            </Link>{" "}
+            ·{" "}
             {formatDate(preset.published_at ?? preset.created_at)}
           </p>
           {preset.status === "published" && (

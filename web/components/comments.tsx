@@ -7,6 +7,7 @@ import { ApiError, waitText, welcomePath } from "../lib/account";
 import type { Comment } from "../lib/api-types";
 import { addComment, deleteComment, editComment, listComments } from "../lib/community";
 import { formatDate } from "../lib/format";
+import { profilePath } from "../lib/presets";
 import { Notice } from "./account-ui";
 import { useSession } from "./session";
 
@@ -126,7 +127,9 @@ function CommentItem({
       ) : (
         <>
           <p className="flex flex-wrap items-baseline gap-x-3 text-sm">
-            <span className="font-medium wrap-anywhere">{name}</span>
+            <Link href={profilePath(comment.author.handle)} className="font-medium text-ink no-underline wrap-anywhere hover:underline">
+              {name}
+            </Link>
             <span className="text-muted">
               {formatDate(comment.created_at)}
               {comment.edited && " · edited"}

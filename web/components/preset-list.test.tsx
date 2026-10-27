@@ -55,6 +55,13 @@ test("a row links to the preset and names each fact for screen readers", () => {
   expect(row.textContent).toContain("by Mia Maker · 20 Oct 2026");
 });
 
+test("on a profile page, the rows leave out the author that the page names", () => {
+  render(<PresetList items={[preset]} showAuthor={false} />);
+  const row = screen.getByRole("listitem");
+  expect(row.textContent).not.toContain("Mia Maker");
+  expect(row.textContent).toContain("20 Oct 2026");
+});
+
 test("a row names an author without a display name by the handle", () => {
   render(<PresetList items={[{ ...preset, author: { handle: "maker", display_name: "" } }]} />);
 
