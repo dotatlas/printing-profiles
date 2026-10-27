@@ -19,6 +19,7 @@ test("the handle opens the menu, and Escape closes it and returns the focus", ()
   fireEvent.click(button);
   expect(button.getAttribute("aria-expanded")).toBe("true");
   expect(screen.getByRole("link", { name: "Settings" })).toBeTruthy();
+  expect(screen.getByRole("link", { name: "My bookmarks" }).getAttribute("href")).toBe("/my-bookmarks");
 
   fireEvent.keyDown(document, { key: "Escape" });
   expect(button.getAttribute("aria-expanded")).toBe("false");

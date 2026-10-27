@@ -114,11 +114,18 @@ export function AccountMenu() {
             </li>
           )}
           {!me.needs_onboarding && (
-            <li>
-              <Link href="/my-presets" className="menu-item">
-                My presets
-              </Link>
-            </li>
+            <>
+              <li>
+                <Link href="/my-presets" className="menu-item">
+                  My presets
+                </Link>
+              </li>
+              <li>
+                <Link href="/my-bookmarks" className="menu-item">
+                  My bookmarks
+                </Link>
+              </li>
+            </>
           )}
           <li>
             <Link href="/settings" className="menu-item">

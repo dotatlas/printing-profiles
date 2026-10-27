@@ -14,8 +14,8 @@ import type { Catalog } from "./preset-list";
 import { PresetView } from "./preset-view";
 import { useMember, useSession } from "./session";
 
-// Loading is the placeholder of a page that waits for the API. Screen readers hear "Loading".
-function Loading() {
+// Loading is the placeholder of a page that waits for the API. Screen readers hear "Loading". MyBookmarks uses it too.
+export function Loading() {
   return (
     <p role="status" className="mt-6 text-muted">
       Loading…

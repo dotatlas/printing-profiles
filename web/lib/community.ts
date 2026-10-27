@@ -1,5 +1,5 @@
 import { ApiError, call } from "./account";
-import type { Comment, CommentPage, Review, ReviewPage } from "./api-types";
+import type { Comment, CommentPage, Preset, Review, ReviewPage } from "./api-types";
 
 // checkID throws for anything that is not a public preset ID, so a bad value never reaches an API path.
 function checkID(id: string): string {
@@ -57,4 +57,22 @@ export async function editComment(id: string, body: string) {
 
 export async function deleteComment(id: string) {
   await call<void>(`/api/v1/comments/${checkCommentID(id)}`, "DELETE");
+}
+
+// isBookmarked, addBookmark and removeBookmark are the calls of the bookmark button on the preset page.
+export async function isBookmarked(id: string) {
+  return (await call<{ bookmarked: boolean }>(`/api/v1/me/bookmarks/${checkID(id)}`)).bookmarked;
+}
+
+export async function addBookmark(id: string) {
+  await call<void>("/api/v1/me/bookmarks", "POST", { preset: checkID(id) });
+}
+
+export async function removeBookmark(id: string) {
+  await call<void>(`/api/v1/me/bookmarks/${checkID(id)}`, "DELETE");
+}
+
+// listBookmarks gets the member's bookmarked presets, newest bookmark first, for /my-bookmarks.
+export async function listBookmarks() {
+  return call<{ items: Preset[] }>("/api/v1/me/bookmarks");
 }

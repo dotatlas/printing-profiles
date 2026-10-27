@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { notFound, permanentRedirect } from "next/navigation";
 import { cache, Suspense } from "react";
 import { AuthorActions, SavedNotice } from "../../../components/preset-pages";
+import { BookmarkButton } from "../../../components/bookmark-button";
 import { Comments } from "../../../components/comments";
 import { Reviews } from "../../../components/reviews";
 import { PresetView } from "../../../components/preset-view";
@@ -48,7 +49,12 @@ export default async function PresetPage({ params }: PageProps<"/presets/[slug]"
   return (
     <PresetView
       preset={preset}
-      actions={<AuthorActions preset={preset} />}
+      actions={
+        <div className="flex flex-wrap items-start gap-3">
+          <BookmarkButton presetId={preset.id} />
+          <AuthorActions preset={preset} />
+        </div>
+      }
       community={
         <>
           <Reviews presetId={preset.id} authorHandle={preset.author.handle} initial={reviews?.items ?? []} />

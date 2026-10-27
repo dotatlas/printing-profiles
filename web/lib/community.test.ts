@@ -1,5 +1,5 @@
 import { afterEach, expect, test, vi } from "vitest";
-import { deleteMyReview, getMyReview, listReviews, saveReview, starsLabel } from "./community";
+import { addBookmark, deleteMyReview, getMyReview, isBookmarked, listReviews, removeBookmark, saveReview, starsLabel } from "./community";
 
 afterEach(() => vi.unstubAllGlobals());
 
@@ -37,4 +37,18 @@ test("the review calls refuse an ID that is not a public ID, before they call th
   await expect(deleteMyReview("../me")).rejects.toThrow();
   await expect(listReviews("../me")).rejects.toThrow();
   expect(calls).toHaveLength(0);
+});
+
+test("the bookmark calls add, check and remove one preset with the session", async () => {
+  const calls = stubFetch(200, { bookmarked: true });
+  expect(await isBookmarked("ab3defgh")).toBe(true);
+  expect(calls[0].url).toMatch(/\/api\/v1\/me\/bookmarks\/ab3defgh$/);
+  await addBookmark("ab3defgh");
+  expect(calls[1].init).toMatchObject({ method: "POST", credentials: "include" });
+  expect(JSON.parse(String(calls[1].init.body))).toEqual({ preset: "ab3defgh" });
+  await removeBookmark("ab3defgh");
+  expect(calls[2].url).toMatch(/\/api\/v1\/me\/bookmarks\/ab3defgh$/);
+  expect(calls[2].init).toMatchObject({ method: "DELETE" });
+  await expect(removeBookmark("../me")).rejects.toThrow();
+  expect(calls).toHaveLength(3);
 });

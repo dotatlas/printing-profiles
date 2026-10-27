@@ -97,6 +97,13 @@
   .btn-secondary:hover:not(:disabled) {
     background-color: var(--color-raised);
   }
+  /* A toggle button that is on: the accent tint, also under the pointer, so the state never hides. */
+  .btn-toggle[aria-pressed="true"],
+  .btn-toggle[aria-pressed="true"]:hover {
+    border-color: var(--color-accent);
+    background-color: var(--color-accent-tint);
+    color: var(--color-accent-ink);
+  }
   .btn-danger {
     border: 1px solid var(--color-control);
     background-color: var(--color-page);
